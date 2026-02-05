@@ -98,7 +98,12 @@ if xml_file and img_file:
         ))
     
     fig.add_layout_image(dict(source=data_uri, x=0, y=0, sizex=width, sizey=height, xref="x", yref="y", sizing="stretch", layer="below"))
-    fig.update_layout(dragmode="pan", margin=dict(l=0, r=0, t=0, b=0), xaxis=dict(range=[0, width], visible=False, scaleanchor="y"), yaxis=dict(range=[height, 0], visible=False))
+    fig.update_layout(
+        dragmode="pan", 
+        margin=dict(l=0, r=0, t=0, b=0), 
+        xaxis=dict(range=[0, width], visible=False, scaleanchor="y"), 
+        yaxis=dict(range=[height, 0], visible=False)
+    )
 
     st.plotly_chart(fig, use_container_width=True)
 
@@ -123,34 +128,43 @@ if xml_file and img_file:
     <html>
     <head>
         <title>Reporte de Componentes</title>
-        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
         <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
         <style>
-            body {{ background-color: #f8f9fa; padding: 15px; font-family: 'Segoe UI', sans-serif; }}
+            body {{ background-color: #f8f9fa; padding: 10px; font-family: 'Segoe UI', sans-serif; overflow-x: hidden; }}
             .header-box {{ background: #2c3e50; color: white; padding: 25px; border-radius: 10px; margin-bottom: 20px; }}
-            #plot-area {{ width: 100%; height: 65vh; background: #fff; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); overflow: hidden; }}
+            #plot-area {{ 
+                width: 100%; 
+                height: 70vh; 
+                background: #fff; 
+                border-radius: 10px; 
+                box-shadow: 0 4px 15px rgba(0,0,0,0.1); 
+                overflow: hidden;
+                touch-action: none;
+            }}
             .filter-section {{ background: white; padding: 15px; border-radius: 10px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }}
-            .filter-label {{ font-weight: bold; font-size: 0.8rem; text-transform: uppercase; color: #666; margin-bottom: 8px; display: block; }}
+            .filter-label {{ font-weight: bold; font-size: 0.75rem; text-transform: uppercase; color: #666; margin-bottom: 8px; display: block; }}
             .summary-card {{ background: white; border-radius: 10px; padding: 15px; margin-top: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }}
-            .btn-filter {{ margin: 2px; font-size: 0.75rem; border-radius: 20px; padding: 5px 15px; transition: 0.3s; }}
+            .btn-filter {{ margin: 2px; font-size: 0.7rem; border-radius: 20px; padding: 5px 15px; transition: 0.3s; }}
+            .table {{ font-size: 0.8rem; }}
         </style>
     </head>
     <body>
         <div class="container-fluid">
             <div class="header-box text-center">
-                <h1 class="display-6 mb-1" style="font-weight: bold;">REPORTE DE COMPONENTES</h1>
-                <h3 class="text-info mb-0">{nombre_modelo.upper() if nombre_modelo else 'SIN NOMBRE'}</h3>
+                <h1 class="display-6 mb-1" style="font-weight: bold; font-size: 1.5rem;">REPORTE DE COMPONENTES</h1>
+                <h3 class="text-info mb-0" style="font-size: 1.1rem;">{nombre_modelo.upper() if nombre_modelo else 'SIN NOMBRE'}</h3>
             </div>
 
             <div class="filter-section">
                 <span class="filter-label">Filtrar por Componente:</span>
-                <div id="tipo-filters">
+                <div id="tipo-filters" class="d-flex flex-wrap">
                     <button id="btn-tipo-all" class="btn btn-primary btn-sm btn-filter" onclick="filterData('tipo', 'all', this)">TODOS</button>
                     {' '.join([f'<button class="btn btn-outline-primary btn-sm btn-filter" onclick="filterData(\'tipo\', \'{t}\', this)">{t.upper()}</button>' for t in tipos_unicos])}
                 </div>
                 <span class="filter-label mt-3">Filtrar por Color:</span>
-                <div id="color-filters">
+                <div id="color-filters" class="d-flex flex-wrap">
                     <button id="btn-color-all" class="btn btn-success btn-sm btn-filter" onclick="filterData('color', 'all', this)">TODOS</button>
                     {' '.join([f'<button class="btn btn-outline-success btn-sm btn-filter" onclick="filterData(\'color\', \'{c}\', this)">{c.upper()}</button>' for c in colores_unicos])}
                 </div>
@@ -170,8 +184,14 @@ if xml_file and img_file:
             const fullTraces = {traces_json};
             const layout = {layout_json};
             const tableData = {conteo_json};
-            const config = {{ responsive: true, scrollZoom: true, displayModeBar: false }};
+            const config = {{ 
+                responsive: true, 
+                scrollZoom: true, 
+                displayModeBar: false,
+                doubleClick: 'reset+autosize'
+            }};
             
+            layout.dragmode = 'pan';
             let currentType = 'all';
             let currentColor = 'all';
 
@@ -221,14 +241,14 @@ if xml_file and img_file:
                     const subTotal = groups[t].reduce((a, b) => a + b.Cant, 0);
                     html += `<div class="mt-3"><b>${{t.toUpperCase()}}</b> <span class="badge bg-secondary">${{subTotal}} pz</span></div>
                             <table class="table table-hover table-sm">
-                                <thead><tr><th>Color</th><th>Tamaño</th><th>Cant.</th></tr></thead>
+                                <thead><tr><th>Color</th><th>Tam.</th><th>Cant.</th></tr></thead>
                                 <tbody>`;
                     groups[t].forEach(row => {{
                         html += `<tr><td>${{row.color_norm}}</td><td>${{row.tamaño}}</td><td>${{row.Cant}}</td></tr>`;
                     }});
                     html += `</tbody></table>`;
                 }}
-                container.innerHTML = html || '<p class="text-muted text-center py-3">No hay elementos con estos filtros.</p>';
+                container.innerHTML = html || '<p class="text-muted text-center py-3">No hay elementos.</p>';
                 document.getElementById('total-val').innerText = 'Total Visible: ' + total;
             }}
             renderTables();
