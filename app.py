@@ -246,6 +246,6 @@ if xml_file and img_file:
     )
 
 else:
-    st.info("Sube los archivos para comenzar. El reporte final dir
+    st.info("Sube los archivos para comenzar. El reporte final dirá 'REPORTE DE COMPONENTES' seguido del nombre del modelo.")
 
 
