@@ -10,7 +10,7 @@ from io import BytesIO
 # =========================
 # CONFIGURACIÓN
 # =========================
-st.set_page_config(page_title="Generador de Mosaicos", layout="wide")
+st.set_page_config(page_title="Gestor de Mosaicos Pro", layout="wide")
 
 COLOR_CATALOG = {
     "plata": "silver", "dorado": "gold", "rosa": "pink",
@@ -44,6 +44,7 @@ xml_file = st.sidebar.file_uploader("1. Subir XML", type=["xml"])
 img_file = st.sidebar.file_uploader("2. Subir Imagen", type=["jpg", "png", "jpeg"])
 
 if xml_file and img_file:
+    # --- Procesamiento XML ---
     tree = ET.parse(xml_file)
     root = tree.getroot()
     rows = []
@@ -64,139 +65,151 @@ if xml_file and img_file:
     df["color_norm"] = df.apply(ajustar_color_por_tipo, axis=1)
     df["color_plot"] = df["color_norm"].map(COLOR_CATALOG).fillna("gray")
 
-    # Imagen
+    # --- Imagen Base64 ---
     img = Image.open(img_file)
     width, height = img.size
     buffered = BytesIO()
     img_format = img.format if img.format else "JPEG"
     img.save(buffered, format=img_format)
     img_base64 = base64.b64encode(buffered.getvalue()).decode()
+    data_uri = f"data:image/{img_format.lower()};base64,{img_base64}"
 
     # --- Gráfico ---
     fig = go.Figure()
+    
+    # Creamos las trazas
     for (t, c, tam), d_sub in df.groupby(["tipo", "color_norm", "tamaño"]):
         fig.add_trace(go.Scatter(
-            x=d_sub["x"], y=d_sub["y"], mode="markers",
-            marker=dict(color=d_sub["color_plot"].iloc[0], size=8, opacity=0.75, line=dict(width=1, color='white')),
+            x=d_sub["x"].tolist(), 
+            y=d_sub["y"].tolist(), 
+            mode="markers",
+            marker=dict(color=d_sub["color_plot"].iloc[0], size=8, opacity=0.8, line=dict(width=1, color='white')),
             name=f"{t} {c} {tam}",
-            customdata=[t]*len(d_sub), # Guardamos el tipo para el filtro JS
+            customdata=[t]*len(d_sub),
             hovertemplate=f"<b>{t}</b><br>{c} {tam}<extra></extra>"
         ))
     
-    fig.add_layout_image(dict(source=f"data:image/{img_format.lower()};base64,{img_base64}", x=0, y=0, sizex=width, sizey=height, xref="x", yref="y", sizing="stretch", layer="below"))
-    fig.update_layout(dragmode="pan", margin=dict(l=0, r=0, t=0, b=0), xaxis=dict(range=[0, width], visible=False, scaleanchor="y"), yaxis=dict(range=[height, 0], visible=False))
+    fig.add_layout_image(dict(source=data_uri, x=0, y=0, sizex=width, sizey=height, xref="x", yref="y", sizing="stretch", layer="below"))
+    
+    fig.update_layout(
+        dragmode="pan", 
+        margin=dict(l=0, r=0, t=0, b=0), 
+        xaxis=dict(range=[0, width], visible=False, scaleanchor="y"), 
+        yaxis=dict(range=[height, 0], visible=False),
+        uirevision=True
+    )
 
     st.plotly_chart(fig, use_container_width=True)
 
-    # --- Generación de Reporte HTML ---
+    # --- Preparación HTML ---
+    # Convertimos los datos de las trazas a JSON limpio para JS
+    traces_json = json.dumps([t.to_plotly_json() for t in fig.data])
+    layout_json = fig.layout.to_json()
     tipos_unicos = sorted(df["tipo"].unique().tolist())
-    conteo = df.groupby(["tipo", "color_norm", "tamaño"]).size().reset_index(name="Cant")
-    
-    # HTML Dinámico
-    html_template = f"""
+    conteo_json = df.groupby(["tipo", "color_norm", "tamaño"]).size().reset_index(name="Cant").to_json(orient='records')
+
+    # HTML Template
+    html_report = f"""
     <!DOCTYPE html>
     <html>
     <head>
-        <title>Reporte Interactivo</title>
+        <title>Reporte de Mosaico</title>
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
         <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
         <style>
-            body {{ background-color: #f4f4f9; padding: 10px; font-family: sans-serif; }}
-            .card {{ margin-bottom: 15px; border: none; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }}
-            #plot-container {{ width: 100%; height: 65vh; background: white; }}
-            .btn-group-wrap {{ display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 10px; }}
-            .table-container {{ font-size: 0.9rem; }}
+            body {{ background-color: #f0f2f6; padding: 10px; }}
+            #plot-area {{ width: 100%; height: 60vh; background: #fff; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); overflow: hidden; }}
+            .filter-btn {{ margin: 2px; font-size: 0.8rem; }}
+            .summary-card {{ background: white; border-radius: 10px; padding: 15px; margin-top: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }}
+            .table {{ font-size: 0.85rem; }}
         </style>
     </head>
     <body>
         <div class="container-fluid">
-            <h4 class="text-center my-2">Mosaico: {img_file.name}</h4>
-            
-            <div class="btn-group-wrap">
-                <button class="btn btn-dark btn-sm" onclick="filterType('all')">Todos</button>
-                {' '.join([f'<button class="btn btn-outline-primary btn-sm" onclick="filterType(\'{t}\')">{t}</button>' for t in tipos_unicos])}
+            <h5 class="mb-3 text-primary">💎 Filtros por Tipo:</h5>
+            <div class="mb-3">
+                <button class="btn btn-dark btn-sm filter-btn" onclick="filterData('all')">VER TODOS</button>
+                {' '.join([f'<button class="btn btn-primary btn-sm filter-btn" onclick="filterData(\'{t}\')">{t.upper()}</button>' for t in tipos_unicos])}
             </div>
 
-            <div class="card p-0">
-                <div id="plot-container"></div>
-            </div>
+            <div id="plot-area"></div>
 
-            <div class="card p-3">
-                <div id="resumen-container" class="table-container">
-                    </div>
+            <div class="summary-card">
+                <div id="tables-container"></div>
                 <hr>
-                <h5 class="text-end" id="total-general">Total: {len(df)}</h5>
+                <h4 class="text-end" id="total-val">Total: {len(df)}</h4>
             </div>
         </div>
 
         <script>
-            var plotData = {fig.to_json()};
-            var fullData = plotData.data;
-            var layout = plotData.layout;
-            var config = {{ responsive: true, scrollZoom: true, displayModeBar: false }};
-            
-            // Inicializar gráfico
-            Plotly.newPlot('plot-container', fullData, layout, config);
+            const fullTraces = {traces_json};
+            const layout = {layout_json};
+            const tableData = {conteo_json};
+            const config = {{ responsive: true, scrollZoom: true, displayModeBar: false }};
 
-            // Datos para las tablas
-            var tableData = {conteo.to_json(orient='records')};
+            // Renderizado Inicial
+            Plotly.newPlot('plot-area', fullTraces, layout, config);
 
-            function filterType(tipo) {{
-                var update = [];
-                var visibleIndices = [];
-                
-                fullData.forEach((trace, index) => {{
-                    var isVisible = (tipo === 'all' || trace.name.startsWith(tipo));
-                    update.push(isVisible ? true : 'legendonly');
+            function filterData(tipo) {{
+                const newTraces = [];
+                fullTraces.forEach(trace => {{
+                    // Filtramos basándonos en si el nombre empieza por el tipo seleccionado
+                    if (tipo === 'all' || trace.name.toLowerCase().startsWith(tipo.toLowerCase())) {{
+                        trace.visible = true;
+                    }} else {{
+                        trace.visible = 'legendonly';
+                    }}
                 }});
                 
-                Plotly.restyle('plot-container', {{ 'visible': update }});
-                updateTables(tipo);
+                Plotly.react('plot-area', fullTraces, layout, config);
+                renderTables(tipo);
             }}
 
-            function updateTables(tipo) {{
-                var container = document.getElementById('resumen-container');
-                var totalEl = document.getElementById('total-general');
-                var filtered = tableData.filter(d => tipo === 'all' || d.tipo === tipo);
-                var totalSum = filtered.reduce((a, b) => a + b.Cant, 0);
+            function renderTables(tipo) {{
+                const container = document.getElementById('tables-container');
+                const filtered = tableData.filter(d => tipo === 'all' || d.tipo === tipo);
+                const total = filtered.reduce((acc, curr) => acc + curr.Cant, 0);
                 
-                var html = '';
-                var grouped = {{}};
+                let html = '';
+                const groups = {{}};
                 filtered.forEach(d => {{
-                    if(!grouped[d.tipo]) grouped[d.tipo] = [];
-                    grouped[d.tipo].push(d);
+                    if (!groups[d.tipo]) groups[d.tipo] = [];
+                    groups[d.tipo].push(d);
                 }});
 
-                for(var t in grouped) {{
-                    var catSum = grouped[t].reduce((a, b) => a + b.Cant, 0);
-                    html += `<h6><b>${{t.toUpperCase()}} (Total: ${{catSum}})</b></h6>
-                             <table class="table table-sm table-striped">
-                             <thead><tr><th>Color</th><th>Tam</th><th>Cant</th></tr></thead><tbody>`;
-                    grouped[t].forEach(d => {{
-                        html += `<tr><td>${{d.color_norm}}</td><td>${{d.tamaño}}</td><td>${{d.Cant}}</td></tr>`;
+                for (const t in groups) {{
+                    const subTotal = groups[t].reduce((a, b) => a + b.Cant, 0);
+                    html += `<h6><b>${{t.toUpperCase()}} (Total: ${{subTotal}})</b></h6>
+                            <table class="table table-striped table-sm mb-3">
+                                <thead class="table-light"><tr><th>Color</th><th>Tamaño</th><th>Cant.</th></tr></thead>
+                                <tbody>`;
+                    groups[t].forEach(row => {{
+                        html += `<tr><td>${{row.color_norm}}</td><td>${{row.tamaño}}</td><td>${{row.Cant}}</td></tr>`;
                     }});
-                    html += '</tbody></table>';
+                    html += `</tbody></table>`;
                 }}
                 container.innerHTML = html;
-                totalEl.innerHTML = 'Total Visible: ' + totalSum;
+                document.getElementById('total-val').innerText = 'Total: ' + total;
             }}
 
-            // Cargar tablas iniciales
-            updateTables('all');
+            // Carga inicial de tablas
+            renderTables('all');
         </script>
     </body>
     </html>
     """
 
+    st.divider()
     st.download_button(
-        label="📥 Descargar Reporte Interactivo Full",
-        data=html_template,
-        file_name=f"Reporte_{img_file.name}.html",
+        label="📥 DESCARGAR REPORTE HTML FINAL",
+        data=html_report,
+        file_name=f"Reporte_{img_file.name.split('.')[0]}.html",
         mime="text/html"
     )
 
 else:
-    st.info("Sube los archivos para generar el reporte descargable.")
+    st.info("Sube los archivos XML e Imagen para generar el reporte descargable.")
+
 
 
