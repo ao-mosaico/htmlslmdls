@@ -4,24 +4,12 @@ import pandas as pd
 import plotly.graph_objects as go
 from PIL import Image
 import base64
-from io import BytesIO, StringIO
+from io import BytesIO
 
 # ==========================================
-# CONFIGURACIÓN DE PÁGINA (MOBILE OPTIMIZED)
+# CONFIGURACIÓN DE PÁGINA
 # ==========================================
-st.set_page_config(page_title="Generador de Mosaicos Pro", layout="wide")
-
-# CSS para habilitar gestos táctiles y mejorar visualización
-st.markdown("""
-    <style>
-    .reportview-container .main .block-container { padding-top: 1rem; }
-    /* Forzamos que el gráfico acepte gestos de zoom con los dedos */
-    .js-plotly-plot .plotly .main-svg {
-        touch-action: pinch-zoom !important;
-    }
-    .stPlotlyChart { height: 75vh !important; }
-    </style>
-    """, unsafe_allow_html=True)
+st.set_page_config(page_title="Generador de Mosaicos", layout="wide")
 
 # =========================
 # CATÁLOGO Y FUNCIONES
@@ -58,7 +46,7 @@ xml_file = st.sidebar.file_uploader("1. Subir XML", type=["xml"])
 img_file = st.sidebar.file_uploader("2. Subir Imagen", type=["jpg", "png", "jpeg"])
 
 if xml_file and img_file:
-    # --- Procesamiento de Datos ---
+    # --- Procesamiento ---
     tree = ET.parse(xml_file)
     root = tree.getroot()
     rows = []
@@ -69,102 +57,110 @@ if xml_file and img_file:
             attrs = {a.attrib["name"]: a.text for a in points.findall("attribute")}
             for c in coords:
                 x, y = map(float, c.split(","))
-                rows.append({
-                    "x": x, "y": y, "tipo": tipo, 
-                    "color_orig": attrs.get("color", "sin_color"), 
-                    "tamaño": attrs.get("tamaño", "")
-                })
+                rows.append({"x": x, "y": y, "tipo": tipo, "color_norm": normalizar_color(attrs.get("color", "")), "tamaño": attrs.get("tamaño", "")})
     
     df = pd.DataFrame(rows)
-    df["color_norm"] = df["color_orig"].apply(normalizar_color)
     df["color_norm"] = df.apply(ajustar_color_por_tipo, axis=1)
     df["color_plot"] = df["color_norm"].map(COLOR_CATALOG).fillna("gray")
 
-    # Filtros
-    st.sidebar.subheader("Filtros")
-    tipos_disp = ["Todos"] + sorted(list(df["tipo"].unique()))
-    tipo_sel = st.sidebar.selectbox("Tipo", tipos_disp)
-    
-    df_f = df.copy()
-    if tipo_sel != "Todos": df_f = df_f[df_f["tipo"] == tipo_sel]
-
-    # --- Imagen Base64 ---
+    # --- Imagen a Base64 ---
     img = Image.open(img_file)
     width, height = img.size
     buffered = BytesIO()
     img_format = img.format if img.format else "JPEG"
     img.save(buffered, format=img_format)
     img_base64 = base64.b64encode(buffered.getvalue()).decode()
-    data_uri = f"data:image/{img_format.lower()};base64,{img_base64}"
 
-    # =========================
-    # CONSTRUCCIÓN DE FIGURA
-    # =========================
+    # --- Generación de Gráfico ---
     fig = go.Figure()
-    
-    for (t, c, tam), d_sub in df_f.groupby(["tipo", "color_norm", "tamaño"]):
+    for (t, c, tam), d_sub in df.groupby(["tipo", "color_norm", "tamaño"]):
         fig.add_trace(go.Scatter(
             x=d_sub["x"], y=d_sub["y"], mode="markers",
-            marker=dict(color=d_sub["color_plot"].iloc[0], size=8, opacity=0.75,
-                        line=dict(width=1, color='white')),
+            marker=dict(color=d_sub["color_plot"].iloc[0], size=8, opacity=0.75, line=dict(width=1, color='white')),
             name=f"{t} {c} {tam}",
             hovertemplate=f"<b>{t}</b><br>{c} {tam}<extra></extra>"
         ))
+    
+    fig.add_layout_image(dict(source=f"data:image/{img_format.lower()};base64,{img_base64}", x=0, y=0, sizex=width, sizey=height, xref="x", yref="y", sizing="stretch", layer="below"))
+    fig.update_layout(dragmode="pan", margin=dict(l=0, r=0, t=0, b=0), xaxis=dict(range=[0, width], visible=False, scaleanchor="y"), yaxis=dict(range=[height, 0], visible=False), uirevision=True)
 
-    fig.add_layout_image(dict(
-        source=data_uri, x=0, y=0, sizex=width, sizey=height,
-        xref="x", yref="y", sizing="stretch", layer="below"
-    ))
-
-    # CONFIGURACIÓN DE INTERACCIÓN
-    fig.update_layout(
-        dragmode="pan",  # Permite mover la imagen con un dedo
-        margin=dict(l=0, r=0, t=40, b=0),
-        xaxis=dict(range=[0, width], visible=False, scaleanchor="y"),
-        yaxis=dict(range=[height, 0], visible=False),
-        showlegend=False,
-        uirevision=True
-    )
-
-    # Mostrar en la App con soporte de gestos táctiles
-    st.plotly_chart(fig, use_container_width=True, config={
-        'scrollZoom': True,        # ACTIVA ZOOM CON DEDOS (PINCH)
-        'displayModeBar': False,   # Limpia la interfaz en móvil
-        'doubleClick': 'reset'     # Doble toque para resetear zoom
-    })
+    st.plotly_chart(fig, use_container_width=True, config={'scrollZoom': True})
 
     # ==========================================
-    # BOTÓN DE EXPORTACIÓN (CON GESTOS ACTIVOS)
+    # GENERADOR DE HTML COMPLETO (OFFLINE)
     # ==========================================
     st.divider()
-    st.subheader("📤 Exportar para Google Sites")
     
-    html_buffer = StringIO()
-    # Guardamos el HTML incluyendo la configuración de scrollZoom
-    fig.write_html(html_buffer, include_plotlyjs='cdn', full_html=True, config={
-        'scrollZoom': True,
-        'displayModeBar': False
-    })
-    
+    # 1. Crear las tablas de resumen en formato HTML para el archivo
+    conteo = df.groupby(["tipo", "color_norm", "tamaño"]).size().reset_index(name="Cant")
+    tablas_html = ""
+    for t in conteo["tipo"].unique():
+        sub = conteo[conteo["tipo"] == t]
+        tablas_html += f"<h5>Detalle de {t.upper()} (Total: {sub['Cant'].sum()})</h5>"
+        tablas_html += sub[["color_norm", "tamaño", "Cant"]].to_html(classes='table table-striped table-sm', index=False, border=0)
+        tablas_html += "<br>"
+
+    # 2. Construir el documento HTML final
+    html_template = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Mosaico Resultado</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+        <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
+        <style>
+            body {{ background-color: #f8f9fa; padding: 15px; }}
+            .card {{ margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }}
+            #plot-container {{ width: 100%; height: 70vh; background: white; border-radius: 8px; overflow: hidden; }}
+            .table {{ font-size: 0.85rem; }}
+        </style>
+    </head>
+    <body>
+        <div class="container-fluid">
+            <h2 class="text-center my-3">💎 Resultado de Mosaico</h2>
+            
+            <div class="card">
+                <div class="card-body p-0">
+                    <div id="plot-container"></div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header bg-primary text-white">📊 Resumen de Componentes</div>
+                <div class="card-body">
+                    {tablas_html}
+                    <hr>
+                    <h4 class="text-end">Total General: {len(df)}</h4>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            var figure = {fig.to_json()};
+            var config = {{ 
+                responsive: true, 
+                scrollZoom: true, 
+                displayModeBar: false 
+            }};
+            Plotly.newPlot('plot-container', figure.data, figure.layout, config);
+        </script>
+    </body>
+    </html>
+    """
+
     st.download_button(
-        label="💾 Descargar HTML para Sites",
-        data=html_buffer.getvalue(),
-        file_name="mosaico_zoom_tactil.html",
-        mime="text/html"
+        label="📥 Descargar Reporte HTML Completo",
+        data=html_template,
+        file_name="reporte_mosaico.html",
+        mime="text/html",
+        help="Descarga un archivo único con el gráfico interactivo y todas las tablas."
     )
 
-    # =========================
-    # RESUMEN DE COMPONENTES
-    # =========================
-    st.subheader("📊 Resumen de Componentes")
-    if not df_f.empty:
-        conteo = df_f.groupby(["tipo", "color_norm", "tamaño"]).size().reset_index(name="Cantidad")
-        for t_en_conteo in conteo["tipo"].unique():
-            sub_c = conteo[conteo["tipo"] == t_en_conteo]
-            total_cat = sub_c["Cantidad"].sum()
-            with st.expander(f"Detalle de {t_en_conteo.upper()} = {total_cat}", expanded=True):
-                st.table(sub_c[["color_norm", "tamaño", "Cantidad"]])
-        st.metric("Total visible", len(df_f))
+    # Resumen visual en la app (opcional, para ver mientras trabajas)
+    with st.expander("Ver tablas en la App"):
+        st.write(conteo)
 
 else:
-    st.warning("⚠️ Sube los archivos en el panel lateral.")
+    st.info("Sube los archivos para generar el reporte.")
+
