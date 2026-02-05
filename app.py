@@ -122,7 +122,7 @@ if xml_file and img_file:
     <body>
         <div class="container-fluid">
             <div class="header-box text-center">
-                <h2 class="mb-0">💎 {nombre_modelo.upper() if nombre_modelo else 'REPORTE DE MOSAICO'}</h2>
+                <h2 class="mb-0"> {nombre_modelo.upper() if nombre_modelo else 'REPORTE DE MOSAICO'}</h2>
                 <small>Imagen: {img_file.name}</small>
             </div>
 
@@ -143,7 +143,7 @@ if xml_file and img_file:
             <div id="plot-area"></div>
 
             <div class="summary-card">
-                <h5 class="border-bottom pb-2">📋 Resumen de Materiales</h5>
+                <h5 class="border-bottom pb-2"> Resumen de Materiales</h5>
                 <div id="tables-container"></div>
                 <hr>
                 <h4 class="text-end text-primary" id="total-val">Total: {len(df)}</h4>
@@ -240,5 +240,6 @@ if xml_file and img_file:
 
 else:
     st.info("Sube los archivos para comenzar. Puedes asignar un nombre al modelo en el panel izquierdo.")
+
 
 
