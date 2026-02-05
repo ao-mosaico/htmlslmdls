@@ -33,7 +33,7 @@ def normalizar_color(c):
 def ajustar_color_por_tipo(row):
     tipo, color = row["tipo"].lower(), row["color_norm"]
     if tipo == "balin" and color not in ["plata", "dorado"]: return "plata"
-    if tipo == "dicroico" and color == "sin_color": return "rosa"
+    if tipo == "dicroico" and color == "sin_color"]: return "rosa"
     return color
 
 # =========================
@@ -99,7 +99,6 @@ if xml_file and img_file:
     colores_unicos = sorted(df["color_norm"].unique().tolist())
     conteo_json = df.groupby(["tipo", "color_norm", "tamaño"]).size().reset_index(name="Cant").to_json(orient='records')
 
-    # Usamos dobles llaves {{ }} para que Python las ignore y lleguen al HTML/JS correctamente
     html_report = f"""
     <!DOCTYPE html>
     <html>
@@ -116,7 +115,7 @@ if xml_file and img_file:
             .filter-label {{ font-weight: bold; font-size: 0.8rem; text-transform: uppercase; color: #666; margin-bottom: 8px; display: block; }}
             .summary-card {{ background: white; border-radius: 10px; padding: 15px; margin-top: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }}
             .table {{ font-size: 0.85rem; }}
-            .btn-filter {{ margin: 2px; font-size: 0.75rem; }}
+            .btn-filter {{ margin: 2px; font-size: 0.75rem; border-radius: 20px; padding: 5px 15px; transition: 0.3s; }}
         </style>
     </head>
     <body>
@@ -128,12 +127,16 @@ if xml_file and img_file:
 
             <div class="filter-section">
                 <span class="filter-label">Filtrar por Componente:</span>
-                <button class="btn btn-dark btn-sm btn-filter" onclick="filterData('tipo', 'all')">TODOS</button>
-                {' '.join([f'<button class="btn btn-outline-primary btn-sm btn-filter" onclick="filterData(\'tipo\', \'{t}\')">{t.upper()}</button>' for t in tipos_unicos])}
+                <div id="tipo-filters">
+                    <button id="btn-tipo-all" class="btn btn-primary btn-sm btn-filter" onclick="filterData('tipo', 'all', this)">TODOS</button>
+                    {' '.join([f'<button class="btn btn-outline-primary btn-sm btn-filter" onclick="filterData(\'tipo\', \'{t}\', this)">{t.upper()}</button>' for t in tipos_unicos])}
+                </div>
                 
                 <span class="filter-label mt-3">Filtrar por Color:</span>
-                <button class="btn btn-dark btn-sm btn-filter" onclick="filterData('color', 'all')">TODOS</button>
-                {' '.join([f'<button class="btn btn-outline-success btn-sm btn-filter" onclick="filterData(\'color\', \'{c}\')">{c.upper()}</button>' for c in colores_unicos])}
+                <div id="color-filters">
+                    <button id="btn-color-all" class="btn btn-success btn-sm btn-filter" onclick="filterData('color', 'all', this)">TODOS</button>
+                    {' '.join([f'<button class="btn btn-outline-success btn-sm btn-filter" onclick="filterData(\'color\', \'{c}\', this)">{c.upper()}</button>' for c in colores_unicos])}
+                </div>
             </div>
 
             <div id="plot-area"></div>
@@ -157,7 +160,22 @@ if xml_file and img_file:
 
             Plotly.newPlot('plot-area', fullTraces, layout, config);
 
-            function filterData(mode, val) {{
+            function filterData(mode, val, btn) {{
+                // 1. Manejo visual de botones
+                const parent = btn.parentElement;
+                const buttons = parent.querySelectorAll('.btn-filter');
+                const activeClass = mode === 'tipo' ? 'btn-primary' : 'btn-success';
+                const outlineClass = mode === 'tipo' ? 'btn-outline-primary' : 'btn-outline-success';
+
+                buttons.forEach(b => {{
+                    b.classList.remove(activeClass);
+                    b.classList.add(outlineClass);
+                }});
+
+                btn.classList.remove(outlineClass);
+                btn.classList.add(activeClass);
+
+                // 2. Lógica de filtrado
                 if(mode === 'tipo') currentType = val;
                 if(mode === 'color') currentColor = val;
 
@@ -203,7 +221,7 @@ if xml_file and img_file:
                     }});
                     html += `</tbody></table>`;
                 }}
-                container.innerHTML = html || '<p class="text-muted">No hay elementos con estos filtros.</p>';
+                container.innerHTML = html || '<p class="text-muted text-center py-3">No hay elementos con estos filtros.</p>';
                 document.getElementById('total-val').innerText = 'Total Visible: ' + total;
             }}
 
@@ -223,7 +241,6 @@ if xml_file and img_file:
 
 else:
     st.info("Sube los archivos para comenzar. Puedes asignar un nombre al modelo en el panel izquierdo.")
-
 
 
 
