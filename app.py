@@ -4,16 +4,14 @@ import pandas as pd
 import plotly.graph_objects as go
 from PIL import Image
 import base64
+import json
 from io import BytesIO
 
-# ==========================================
-# CONFIGURACIÓN DE PÁGINA
-# ==========================================
+# =========================
+# CONFIGURACIÓN
+# =========================
 st.set_page_config(page_title="Generador de Mosaicos", layout="wide")
 
-# =========================
-# CATÁLOGO Y FUNCIONES
-# =========================
 COLOR_CATALOG = {
     "plata": "silver", "dorado": "gold", "rosa": "pink",
     "ab_aguamarina": "aquamarine", "ab_amatista": "mediumpurple",
@@ -39,14 +37,13 @@ def ajustar_color_por_tipo(row):
     return color
 
 # =========================
-# INTERFAZ LATERAL
+# INTERFAZ
 # =========================
 st.sidebar.title("💎 Panel de Control")
 xml_file = st.sidebar.file_uploader("1. Subir XML", type=["xml"])
 img_file = st.sidebar.file_uploader("2. Subir Imagen", type=["jpg", "png", "jpeg"])
 
 if xml_file and img_file:
-    # --- Procesamiento ---
     tree = ET.parse(xml_file)
     root = tree.getroot()
     rows = []
@@ -57,13 +54,17 @@ if xml_file and img_file:
             attrs = {a.attrib["name"]: a.text for a in points.findall("attribute")}
             for c in coords:
                 x, y = map(float, c.split(","))
-                rows.append({"x": x, "y": y, "tipo": tipo, "color_norm": normalizar_color(attrs.get("color", "")), "tamaño": attrs.get("tamaño", "")})
+                rows.append({
+                    "x": x, "y": y, "tipo": tipo, 
+                    "color_norm": normalizar_color(attrs.get("color", "")), 
+                    "tamaño": attrs.get("tamaño", "")
+                })
     
     df = pd.DataFrame(rows)
     df["color_norm"] = df.apply(ajustar_color_por_tipo, axis=1)
     df["color_plot"] = df["color_norm"].map(COLOR_CATALOG).fillna("gray")
 
-    # --- Imagen a Base64 ---
+    # Imagen
     img = Image.open(img_file)
     width, height = img.size
     buffered = BytesIO()
@@ -71,96 +72,131 @@ if xml_file and img_file:
     img.save(buffered, format=img_format)
     img_base64 = base64.b64encode(buffered.getvalue()).decode()
 
-    # --- Generación de Gráfico ---
+    # --- Gráfico ---
     fig = go.Figure()
     for (t, c, tam), d_sub in df.groupby(["tipo", "color_norm", "tamaño"]):
         fig.add_trace(go.Scatter(
             x=d_sub["x"], y=d_sub["y"], mode="markers",
             marker=dict(color=d_sub["color_plot"].iloc[0], size=8, opacity=0.75, line=dict(width=1, color='white')),
             name=f"{t} {c} {tam}",
+            customdata=[t]*len(d_sub), # Guardamos el tipo para el filtro JS
             hovertemplate=f"<b>{t}</b><br>{c} {tam}<extra></extra>"
         ))
     
     fig.add_layout_image(dict(source=f"data:image/{img_format.lower()};base64,{img_base64}", x=0, y=0, sizex=width, sizey=height, xref="x", yref="y", sizing="stretch", layer="below"))
-    fig.update_layout(dragmode="pan", margin=dict(l=0, r=0, t=0, b=0), xaxis=dict(range=[0, width], visible=False, scaleanchor="y"), yaxis=dict(range=[height, 0], visible=False), uirevision=True)
+    fig.update_layout(dragmode="pan", margin=dict(l=0, r=0, t=0, b=0), xaxis=dict(range=[0, width], visible=False, scaleanchor="y"), yaxis=dict(range=[height, 0], visible=False))
 
-    st.plotly_chart(fig, use_container_width=True, config={'scrollZoom': True})
+    st.plotly_chart(fig, use_container_width=True)
 
-    # ==========================================
-    # GENERADOR DE HTML COMPLETO (OFFLINE)
-    # ==========================================
-    st.divider()
-    
-    # 1. Crear las tablas de resumen en formato HTML para el archivo
+    # --- Generación de Reporte HTML ---
+    tipos_unicos = sorted(df["tipo"].unique().tolist())
     conteo = df.groupby(["tipo", "color_norm", "tamaño"]).size().reset_index(name="Cant")
-    tablas_html = ""
-    for t in conteo["tipo"].unique():
-        sub = conteo[conteo["tipo"] == t]
-        tablas_html += f"<h5>Detalle de {t.upper()} (Total: {sub['Cant'].sum()})</h5>"
-        tablas_html += sub[["color_norm", "tamaño", "Cant"]].to_html(classes='table table-striped table-sm', index=False, border=0)
-        tablas_html += "<br>"
-
-    # 2. Construir el documento HTML final
+    
+    # HTML Dinámico
     html_template = f"""
     <!DOCTYPE html>
     <html>
     <head>
-        <title>Mosaico Resultado</title>
+        <title>Reporte Interactivo</title>
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
         <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
         <style>
-            body {{ background-color: #f8f9fa; padding: 15px; }}
-            .card {{ margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }}
-            #plot-container {{ width: 100%; height: 70vh; background: white; border-radius: 8px; overflow: hidden; }}
-            .table {{ font-size: 0.85rem; }}
+            body {{ background-color: #f4f4f9; padding: 10px; font-family: sans-serif; }}
+            .card {{ margin-bottom: 15px; border: none; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }}
+            #plot-container {{ width: 100%; height: 65vh; background: white; }}
+            .btn-group-wrap {{ display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 10px; }}
+            .table-container {{ font-size: 0.9rem; }}
         </style>
     </head>
     <body>
         <div class="container-fluid">
-            <h2 class="text-center my-3">💎 Resultado de Mosaico</h2>
+            <h4 class="text-center my-2">Mosaico: {img_file.name}</h4>
             
-            <div class="card">
-                <div class="card-body p-0">
-                    <div id="plot-container"></div>
-                </div>
+            <div class="btn-group-wrap">
+                <button class="btn btn-dark btn-sm" onclick="filterType('all')">Todos</button>
+                {' '.join([f'<button class="btn btn-outline-primary btn-sm" onclick="filterType(\'{t}\')">{t}</button>' for t in tipos_unicos])}
             </div>
 
-            <div class="card">
-                <div class="card-header bg-primary text-white">📊 Resumen de Componentes</div>
-                <div class="card-body">
-                    {tablas_html}
-                    <hr>
-                    <h4 class="text-end">Total General: {len(df)}</h4>
-                </div>
+            <div class="card p-0">
+                <div id="plot-container"></div>
+            </div>
+
+            <div class="card p-3">
+                <div id="resumen-container" class="table-container">
+                    </div>
+                <hr>
+                <h5 class="text-end" id="total-general">Total: {len(df)}</h5>
             </div>
         </div>
 
         <script>
-            var figure = {fig.to_json()};
-            var config = {{ 
-                responsive: true, 
-                scrollZoom: true, 
-                displayModeBar: false 
-            }};
-            Plotly.newPlot('plot-container', figure.data, figure.layout, config);
+            var plotData = {fig.to_json()};
+            var fullData = plotData.data;
+            var layout = plotData.layout;
+            var config = {{ responsive: true, scrollZoom: true, displayModeBar: false }};
+            
+            // Inicializar gráfico
+            Plotly.newPlot('plot-container', fullData, layout, config);
+
+            // Datos para las tablas
+            var tableData = {conteo.to_json(orient='records')};
+
+            function filterType(tipo) {{
+                var update = [];
+                var visibleIndices = [];
+                
+                fullData.forEach((trace, index) => {{
+                    var isVisible = (tipo === 'all' || trace.name.startsWith(tipo));
+                    update.push(isVisible ? true : 'legendonly');
+                }});
+                
+                Plotly.restyle('plot-container', {{ 'visible': update }});
+                updateTables(tipo);
+            }}
+
+            function updateTables(tipo) {{
+                var container = document.getElementById('resumen-container');
+                var totalEl = document.getElementById('total-general');
+                var filtered = tableData.filter(d => tipo === 'all' || d.tipo === tipo);
+                var totalSum = filtered.reduce((a, b) => a + b.Cant, 0);
+                
+                var html = '';
+                var grouped = {{}};
+                filtered.forEach(d => {{
+                    if(!grouped[d.tipo]) grouped[d.tipo] = [];
+                    grouped[d.tipo].push(d);
+                }});
+
+                for(var t in grouped) {{
+                    var catSum = grouped[t].reduce((a, b) => a + b.Cant, 0);
+                    html += `<h6><b>${{t.toUpperCase()}} (Total: ${{catSum}})</b></h6>
+                             <table class="table table-sm table-striped">
+                             <thead><tr><th>Color</th><th>Tam</th><th>Cant</th></tr></thead><tbody>`;
+                    grouped[t].forEach(d => {{
+                        html += `<tr><td>${{d.color_norm}}</td><td>${{d.tamaño}}</td><td>${{d.Cant}}</td></tr>`;
+                    }});
+                    html += '</tbody></table>';
+                }}
+                container.innerHTML = html;
+                totalEl.innerHTML = 'Total Visible: ' + totalSum;
+            }}
+
+            // Cargar tablas iniciales
+            updateTables('all');
         </script>
     </body>
     </html>
     """
 
     st.download_button(
-        label="📥 Descargar Reporte HTML Completo",
+        label="📥 Descargar Reporte Interactivo Full",
         data=html_template,
-        file_name="reporte_mosaico.html",
-        mime="text/html",
-        help="Descarga un archivo único con el gráfico interactivo y todas las tablas."
+        file_name=f"Reporte_{img_file.name}.html",
+        mime="text/html"
     )
 
-    # Resumen visual en la app (opcional, para ver mientras trabajas)
-    with st.expander("Ver tablas en la App"):
-        st.write(conteo)
-
 else:
-    st.info("Sube los archivos para generar el reporte.")
+    st.info("Sube los archivos para generar el reporte descargable.")
+
 
