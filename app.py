@@ -7,14 +7,19 @@ import base64
 from io import BytesIO, StringIO
 
 # ==========================================
-# CONFIGURACIÓN DE PÁGINA
+# CONFIGURACIÓN DE PÁGINA (MOBILE OPTIMIZED)
 # ==========================================
 st.set_page_config(page_title="Generador de Mosaicos Pro", layout="wide")
 
+# CSS para habilitar gestos táctiles y mejorar visualización
 st.markdown("""
     <style>
     .reportview-container .main .block-container { padding-top: 1rem; }
-    .stPlotlyChart { height: 70vh !important; }
+    /* Forzamos que el gráfico acepte gestos de zoom con los dedos */
+    .js-plotly-plot .plotly .main-svg {
+        touch-action: pinch-zoom !important;
+    }
+    .stPlotlyChart { height: 75vh !important; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -83,13 +88,9 @@ if xml_file and img_file:
     df_f = df.copy()
     if tipo_sel != "Todos": df_f = df_f[df_f["tipo"] == tipo_sel]
 
-    # ==========================================
-    # LÓGICA DE IMAGEN BASE64 (PARA GOOGLE SITES)
-    # ==========================================
+    # --- Imagen Base64 ---
     img = Image.open(img_file)
     width, height = img.size
-    
-    # Convertimos la imagen a texto (Base64) para que se guarde dentro del HTML
     buffered = BytesIO()
     img_format = img.format if img.format else "JPEG"
     img.save(buffered, format=img_format)
@@ -110,50 +111,60 @@ if xml_file and img_file:
             hovertemplate=f"<b>{t}</b><br>{c} {tam}<extra></extra>"
         ))
 
-    # Imagen de Fondo (Usando el Data URI de Base64)
     fig.add_layout_image(dict(
         source=data_uri, x=0, y=0, sizex=width, sizey=height,
         xref="x", yref="y", sizing="stretch", layer="below"
     ))
 
+    # CONFIGURACIÓN DE INTERACCIÓN
     fig.update_layout(
-        dragmode="pan", margin=dict(l=0, r=0, t=40, b=0),
+        dragmode="pan",  # Permite mover la imagen con un dedo
+        margin=dict(l=0, r=0, t=40, b=0),
         xaxis=dict(range=[0, width], visible=False, scaleanchor="y"),
         yaxis=dict(range=[height, 0], visible=False),
-        showlegend=False, uirevision=True
+        showlegend=False,
+        uirevision=True
     )
 
-    # Mostrar en la App
-    st.plotly_chart(fig, use_container_width=True)
+    # Mostrar en la App con soporte de gestos táctiles
+    st.plotly_chart(fig, use_container_width=True, config={
+        'scrollZoom': True,        # ACTIVA ZOOM CON DEDOS (PINCH)
+        'displayModeBar': False,   # Limpia la interfaz en móvil
+        'doubleClick': 'reset'     # Doble toque para resetear zoom
+    })
 
     # ==========================================
-    # BOTÓN DE EXPORTACIÓN PARA GOOGLE SITES
+    # BOTÓN DE EXPORTACIÓN (CON GESTOS ACTIVOS)
     # ==========================================
     st.divider()
     st.subheader("📤 Exportar para Google Sites")
     
-    # Generar el HTML en un buffer
     html_buffer = StringIO()
-    fig.write_html(html_buffer, include_plotlyjs='cdn', full_html=True)
+    # Guardamos el HTML incluyendo la configuración de scrollZoom
+    fig.write_html(html_buffer, include_plotlyjs='cdn', full_html=True, config={
+        'scrollZoom': True,
+        'displayModeBar': False
+    })
     
     st.download_button(
-        label="💾 Descargar HTML (Imagen incrustada)",
+        label="💾 Descargar HTML para Sites",
         data=html_buffer.getvalue(),
-        file_name="mosaico_resultado.html",
-        mime="text/html",
-        help="Este archivo contiene la imagen y los puntos. Puedes abrirlo y copiar su código en Google Sites."
+        file_name="mosaico_zoom_tactil.html",
+        mime="text/html"
     )
 
     # =========================
     # RESUMEN DE COMPONENTES
     # =========================
     st.subheader("📊 Resumen de Componentes")
-    conteo = df_f.groupby(["tipo", "color_norm", "tamaño"]).size().reset_index(name="Cantidad")
-    for t_en_conteo in conteo["tipo"].unique():
-        sub_c = conteo[conteo["tipo"] == t_en_conteo]
-        total_cat = sub_c["Cantidad"].sum()
-        with st.expander(f"Detalle de {t_en_conteo.upper()} = {total_cat}", expanded=True):
-            st.table(sub_c[["color_norm", "tamaño", "Cantidad"]])
+    if not df_f.empty:
+        conteo = df_f.groupby(["tipo", "color_norm", "tamaño"]).size().reset_index(name="Cantidad")
+        for t_en_conteo in conteo["tipo"].unique():
+            sub_c = conteo[conteo["tipo"] == t_en_conteo]
+            total_cat = sub_c["Cantidad"].sum()
+            with st.expander(f"Detalle de {t_en_conteo.upper()} = {total_cat}", expanded=True):
+                st.table(sub_c[["color_norm", "tamaño", "Cantidad"]])
+        st.metric("Total visible", len(df_f))
 
 else:
-    st.warning("⚠️ Sube el XML y la Imagen para comenzar.")
+    st.warning("⚠️ Sube los archivos en el panel lateral.")
