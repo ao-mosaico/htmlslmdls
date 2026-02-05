@@ -40,6 +40,7 @@ def ajustar_color_por_tipo(row):
 # INTERFAZ
 # =========================
 st.sidebar.title("💎 Panel de Control")
+nombre_modelo = st.sidebar.text_input("Nombre del Modelo / Pieza", placeholder="Ej: Collar Primavera")
 xml_file = st.sidebar.file_uploader("1. Subir XML", type=["xml"])
 img_file = st.sidebar.file_uploader("2. Subir Imagen", type=["jpg", "png", "jpeg"])
 
@@ -74,71 +75,73 @@ if xml_file and img_file:
     img_base64 = base64.b64encode(buffered.getvalue()).decode()
     data_uri = f"data:image/{img_format.lower()};base64,{img_base64}"
 
-    # --- Gráfico ---
+    # --- Gráfico Principal ---
     fig = go.Figure()
-    
-    # Creamos las trazas
     for (t, c, tam), d_sub in df.groupby(["tipo", "color_norm", "tamaño"]):
         fig.add_trace(go.Scatter(
-            x=d_sub["x"].tolist(), 
-            y=d_sub["y"].tolist(), 
-            mode="markers",
+            x=d_sub["x"].tolist(), y=d_sub["y"].tolist(), mode="markers",
             marker=dict(color=d_sub["color_plot"].iloc[0], size=8, opacity=0.8, line=dict(width=1, color='white')),
             name=f"{t} {c} {tam}",
-            customdata=[t]*len(d_sub),
+            customdata=[{"tipo": t, "color": c}] * len(d_sub),
             hovertemplate=f"<b>{t}</b><br>{c} {tam}<extra></extra>"
         ))
     
     fig.add_layout_image(dict(source=data_uri, x=0, y=0, sizex=width, sizey=height, xref="x", yref="y", sizing="stretch", layer="below"))
-    
-    fig.update_layout(
-        dragmode="pan", 
-        margin=dict(l=0, r=0, t=0, b=0), 
-        xaxis=dict(range=[0, width], visible=False, scaleanchor="y"), 
-        yaxis=dict(range=[height, 0], visible=False),
-        uirevision=True
-    )
+    fig.update_layout(dragmode="pan", margin=dict(l=0, r=0, t=0, b=0), xaxis=dict(range=[0, width], visible=False, scaleanchor="y"), yaxis=dict(range=[height, 0], visible=False))
 
+    st.subheader(f"Vista Previa: {nombre_modelo if nombre_modelo else 'Sin nombre'}")
     st.plotly_chart(fig, use_container_width=True)
 
     # --- Preparación HTML ---
-    # Convertimos los datos de las trazas a JSON limpio para JS
     traces_json = json.dumps([t.to_plotly_json() for t in fig.data])
     layout_json = fig.layout.to_json()
     tipos_unicos = sorted(df["tipo"].unique().tolist())
+    colores_unicos = sorted(df["color_norm"].unique().tolist())
     conteo_json = df.groupby(["tipo", "color_norm", "tamaño"]).size().reset_index(name="Cant").to_json(orient='records')
 
-    # HTML Template
     html_report = f"""
     <!DOCTYPE html>
     <html>
     <head>
-        <title>Reporte de Mosaico</title>
+        <title>Reporte: {nombre_modelo}</title>
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
         <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
         <style>
-            body {{ background-color: #f0f2f6; padding: 10px; }}
-            #plot-area {{ width: 100%; height: 60vh; background: #fff; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); overflow: hidden; }}
-            .filter-btn {{ margin: 2px; font-size: 0.8rem; }}
-            .summary-card {{ background: white; border-radius: 10px; padding: 15px; margin-top: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }}
+            body {{ background-color: #f8f9fa; padding: 15px; font-family: 'Segoe UI', sans-serif; }}
+            .header-box {{ background: #2c3e50; color: white; padding: 20px; border-radius: 10px; margin-bottom: 20px; }}
+            #plot-area {{ width: 100%; height: 65vh; background: #fff; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); overflow: hidden; }}
+            .filter-section {{ background: white; padding: 15px; border-radius: 10px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }}
+            .filter-label {{ font-weight: bold; font-size: 0.8rem; text-transform: uppercase; color: #666; margin-bottom: 8px; display: block; }}
+            .summary-card {{ background: white; border-radius: 10px; padding: 15px; margin-top: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }}
             .table {{ font-size: 0.85rem; }}
+            .btn-filter {{ margin: 2px; font-size: 0.75rem; }}
         </style>
     </head>
     <body>
         <div class="container-fluid">
-            <h5 class="mb-3 text-primary">💎 Filtros por Tipo:</h5>
-            <div class="mb-3">
-                <button class="btn btn-dark btn-sm filter-btn" onclick="filterData('all')">VER TODOS</button>
-                {' '.join([f'<button class="btn btn-primary btn-sm filter-btn" onclick="filterData(\'{t}\')">{t.upper()}</button>' for t in tipos_unicos])}
+            <div class="header-box text-center">
+                <h2 class="mb-0">💎 {nombre_modelo.upper() if nombre_modelo else 'REPORTE DE COMPONENTES'}</h2>
+                <small>Imagen: {img_file.name}</small>
+            </div>
+
+            <div class="filter-section">
+                <span class="filter-label">Filtrar por Componente:</span>
+                <button class="btn btn-dark btn-sm btn-filter" onclick="filterData('tipo', 'all')">TODOS</button>
+                {' '.join([f'<button class="btn btn-outline-primary btn-sm btn-filter" onclick="filterData(\'tipo\', \'{t}\')">{t.upper()}</button>' for t in tipos_unicos])}
+                
+                <span class="filter-label mt-3">Filtrar por Color:</span>
+                <button class="btn btn-dark btn-sm btn-filter" onclick="filterData('color', 'all')">TODOS</button>
+                {' '.join([f'<button class="btn btn-outline-success btn-sm btn-filter" onclick="filterData(\'color\', \'{c}\')">{c.upper()}</button>' for c in colores_unicos])}
             </div>
 
             <div id="plot-area"></div>
 
             <div class="summary-card">
+                <h5 class="border-bottom pb-2">📋 Resumen de Materiales</h5>
                 <div id="tables-container"></div>
                 <hr>
-                <h4 class="text-end" id="total-val">Total: {len(df)}</h4>
+                <h4 class="text-end text-primary" id="total-val">Total: {len(df)}</h4>
             </div>
         </div>
 
@@ -147,30 +150,39 @@ if xml_file and img_file:
             const layout = {layout_json};
             const tableData = {conteo_json};
             const config = {{ responsive: true, scrollZoom: true, displayModeBar: false }};
+            
+            let currentType = 'all';
+            let currentColor = 'all';
 
-            // Renderizado Inicial
             Plotly.newPlot('plot-area', fullTraces, layout, config);
 
-            function filterData(tipo) {{
-                const newTraces = [];
+            function filterData(mode, val) {{
+                if(mode === 'tipo') currentType = val;
+                if(mode === 'color') currentColor = val;
+
                 fullTraces.forEach(trace => {{
-                    // Filtramos basándonos en si el nombre empieza por el tipo seleccionado
-                    if (tipo === 'all' || trace.name.toLowerCase().startsWith(tipo.toLowerCase())) {{
-                        trace.visible = true;
-                    }} else {{
-                        trace.visible = 'legendonly';
-                    }}
+                    const tName = trace.customdata[0].tipo.toLowerCase();
+                    const cName = trace.customdata[0].color.toLowerCase();
+                    
+                    const matchType = (currentType === 'all' || tName === currentType.toLowerCase());
+                    const matchColor = (currentColor === 'all' || cName === currentColor.toLowerCase());
+
+                    trace.visible = (matchType && matchColor) ? true : 'legendonly';
                 }});
                 
                 Plotly.react('plot-area', fullTraces, layout, config);
-                renderTables(tipo);
+                renderTables();
             }}
 
-            function renderTables(tipo) {{
+            function renderTables() {{
                 const container = document.getElementById('tables-container');
-                const filtered = tableData.filter(d => tipo === 'all' || d.tipo === tipo);
-                const total = filtered.reduce((acc, curr) => acc + curr.Cant, 0);
+                const filtered = tableData.filter(d => {{
+                    const matchT = (currentType === 'all' || d.tipo === currentType);
+                    const matchC = (currentColor === 'all' || d.color_norm === currentColor);
+                    return matchT && matchC;
+                }});
                 
+                const total = filtered.reduce((acc, curr) => acc + curr.Cant, 0);
                 let html = '';
                 const groups = {{}};
                 filtered.forEach(d => {{
@@ -180,21 +192,20 @@ if xml_file and img_file:
 
                 for (const t in groups) {{
                     const subTotal = groups[t].reduce((a, b) => a + b.Cant, 0);
-                    html += `<h6><b>${{t.toUpperCase()}} (Total: ${{subTotal}})</b></h6>
-                            <table class="table table-striped table-sm mb-3">
-                                <thead class="table-light"><tr><th>Color</th><th>Tamaño</th><th>Cant.</th></tr></thead>
+                    html += `<div class="mt-3"><b>${{t.toUpperCase()}}</b> <span class="badge bg-secondary">${{subTotal}} pz</span></div>
+                            <table class="table table-hover table-sm">
+                                <thead><tr><th>Color</th><th>Tamaño</th><th>Cant.</th></tr></thead>
                                 <tbody>`;
                     groups[t].forEach(row => {{
                         html += `<tr><td>${{row.color_norm}}</td><td>${{row.tamaño}}</td><td>${{row.Cant}}</td></tr>`;
                     }});
                     html += `</tbody></table>`;
-                }}
-                container.innerHTML = html;
-                document.getElementById('total-val').innerText = 'Total: ' + total;
+                }
+                container.innerHTML = html || '<p class="text-muted">No hay elementos con estos filtros.</p>';
+                document.getElementById('total-val').innerText = 'Total Visible: ' + total;
             }}
 
-            // Carga inicial de tablas
-            renderTables('all');
+            renderTables();
         </script>
     </body>
     </html>
@@ -202,14 +213,15 @@ if xml_file and img_file:
 
     st.divider()
     st.download_button(
-        label="📥 DESCARGAR REPORTE HTML FINAL",
+        label=f"📥 DESCARGAR REPORTE: {nombre_modelo if nombre_modelo else 'MOSAICO'}",
         data=html_report,
-        file_name=f"Reporte_{img_file.name.split('.')[0]}.html",
+        file_name=f"Reporte_{nombre_modelo if nombre_modelo else 'Mosaico'}.html",
         mime="text/html"
     )
 
 else:
-    st.info("Sube los archivos XML e Imagen para generar el reporte descargable.")
+    st.info("Sube los archivos para comenzar. Puedes asignar un nombre al modelo en el panel izquierdo.")
+
 
 
 
