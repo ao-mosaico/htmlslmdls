@@ -3,13 +3,14 @@ import xml.etree.ElementTree as ET
 import pandas as pd
 import plotly.graph_objects as go
 from PIL import Image
+import base64
+from io import BytesIO, StringIO
 
 # ==========================================
-# CONFIGURACIÓN DE PÁGINA (MOBILE FIRST)
+# CONFIGURACIÓN DE PÁGINA
 # ==========================================
-st.set_page_config(page_title="Gestor de Joyas", layout="wide")
+st.set_page_config(page_title="Generador de Mosaicos Pro", layout="wide")
 
-# Estilo para maximizar el espacio en móviles
 st.markdown("""
     <style>
     .reportview-container .main .block-container { padding-top: 1rem; }
@@ -74,95 +75,85 @@ if xml_file and img_file:
     df["color_norm"] = df.apply(ajustar_color_por_tipo, axis=1)
     df["color_plot"] = df["color_norm"].map(COLOR_CATALOG).fillna("gray")
 
-    # --- Filtros Nativos ---
-    st.sidebar.subheader("Filtros de Vista")
+    # Filtros
+    st.sidebar.subheader("Filtros")
     tipos_disp = ["Todos"] + sorted(list(df["tipo"].unique()))
-    tipo_sel = st.sidebar.selectbox("Filtrar por Tipo", tipos_disp)
+    tipo_sel = st.sidebar.selectbox("Tipo", tipos_disp)
     
-    colores_disp = ["Todos"] + sorted(list(df["color_norm"].unique()))
-    color_sel = st.sidebar.selectbox("Filtrar por Color", colores_disp)
-
-    # Aplicar filtros
     df_f = df.copy()
     if tipo_sel != "Todos": df_f = df_f[df_f["tipo"] == tipo_sel]
-    if color_sel != "Todos": df_f = df_f[df_f["color_norm"] == color_sel]
+
+    # ==========================================
+    # LÓGICA DE IMAGEN BASE64 (PARA GOOGLE SITES)
+    # ==========================================
+    img = Image.open(img_file)
+    width, height = img.size
+    
+    # Convertimos la imagen a texto (Base64) para que se guarde dentro del HTML
+    buffered = BytesIO()
+    img_format = img.format if img.format else "JPEG"
+    img.save(buffered, format=img_format)
+    img_base64 = base64.b64encode(buffered.getvalue()).decode()
+    data_uri = f"data:image/{img_format.lower()};base64,{img_base64}"
 
     # =========================
     # CONSTRUCCIÓN DE FIGURA
     # =========================
-    # ESTA ES LA LÍNEA 93 QUE DABA ERROR:
-    img = Image.open(img_file)
-    width, height = img.size
-
     fig = go.Figure()
     
-    # Agrupamos para crear las trazas
-    if not df_f.empty:
-        for (t, c, tam), d_sub in df_f.groupby(["tipo", "color_norm", "tamaño"]):
-            hover_text = f"<b>{t}</b><br>{c} {tam}<extra></extra>"
-            
-            fig.add_trace(go.Scatter(
-                x=d_sub["x"], 
-                y=d_sub["y"], 
-                mode="markers",
-                marker=dict(
-                    color=d_sub["color_plot"].iloc[0], 
-                    size=8, 
-                    opacity=0.75,
-                    line=dict(width=1, color='white')
-                ),
-                name=f"{t} {c} {tam}",
-                hovertemplate=hover_text
-            ))
+    for (t, c, tam), d_sub in df_f.groupby(["tipo", "color_norm", "tamaño"]):
+        fig.add_trace(go.Scatter(
+            x=d_sub["x"], y=d_sub["y"], mode="markers",
+            marker=dict(color=d_sub["color_plot"].iloc[0], size=8, opacity=0.75,
+                        line=dict(width=1, color='white')),
+            name=f"{t} {c} {tam}",
+            hovertemplate=f"<b>{t}</b><br>{c} {tam}<extra></extra>"
+        ))
 
-    # Imagen de Fondo
+    # Imagen de Fondo (Usando el Data URI de Base64)
     fig.add_layout_image(dict(
-        source=img, x=0, y=0, sizex=width, sizey=height,
+        source=data_uri, x=0, y=0, sizex=width, sizey=height,
         xref="x", yref="y", sizing="stretch", layer="below"
     ))
 
-    # Layout Ajustado
     fig.update_layout(
-        dragmode="pan",
-        margin=dict(l=0, r=0, t=40, b=0),
+        dragmode="pan", margin=dict(l=0, r=0, t=40, b=0),
         xaxis=dict(range=[0, width], visible=False, scaleanchor="y"),
         yaxis=dict(range=[height, 0], visible=False),
-        showlegend=False,
-        uirevision=True
+        showlegend=False, uirevision=True
     )
 
-    # Mostrar Gráfico
-    st.plotly_chart(fig, use_container_width=True, config={
-        'scrollZoom': True,
-        'displayModeBar': False
-    })
+    # Mostrar en la App
+    st.plotly_chart(fig, use_container_width=True)
+
+    # ==========================================
+    # BOTÓN DE EXPORTACIÓN PARA GOOGLE SITES
+    # ==========================================
+    st.divider()
+    st.subheader("📤 Exportar para Google Sites")
+    
+    # Generar el HTML en un buffer
+    html_buffer = StringIO()
+    fig.write_html(html_buffer, include_plotlyjs='cdn', full_html=True)
+    
+    st.download_button(
+        label="💾 Descargar HTML (Imagen incrustada)",
+        data=html_buffer.getvalue(),
+        file_name="mosaico_resultado.html",
+        mime="text/html",
+        help="Este archivo contiene la imagen y los puntos. Puedes abrirlo y copiar su código en Google Sites."
+    )
 
     # =========================
     # RESUMEN DE COMPONENTES
     # =========================
     st.subheader("📊 Resumen de Componentes")
-    
-    if not df_f.empty:
-        # 1. Agrupamos los datos
-        conteo = df_f.groupby(["tipo", "color_norm", "tamaño"]).size().reset_index(name="Cantidad")
-        
-        # 2. Generamos los desplegables por tipo
-        for t_en_conteo in conteo["tipo"].unique():
-            # Filtramos el conteo solo para este tipo (ej. Balín)
-            sub_c = conteo[conteo["tipo"] == t_en_conteo]
-            
-            # CALCULAMOS EL TOTAL DE ESTE TIPO
-            total_categoria = sub_c["Cantidad"].sum()
-            
-            # CREAMOS EL TÍTULO DINÁMICO: "Detalle de CRISTAL (Total: 163)"
-            titulo_desplegable = f"Detalle de {t_en_conteo.upper()} (Total: {total_categoria})"
-            
-            with st.expander(titulo_desplegable, expanded=True):
-                # Mostramos la tabla limpia
-                st.table(sub_c[["color_norm", "tamaño", "Cantidad"]])
+    conteo = df_f.groupby(["tipo", "color_norm", "tamaño"]).size().reset_index(name="Cantidad")
+    for t_en_conteo in conteo["tipo"].unique():
+        sub_c = conteo[conteo["tipo"] == t_en_conteo]
+        total_cat = sub_c["Cantidad"].sum()
+        with st.expander(f"Detalle de {t_en_conteo.upper()} = {total_cat}", expanded=True):
+            st.table(sub_c[["color_norm", "tamaño", "Cantidad"]])
 
-        # Métrica general al final
-        st.divider()
-        st.metric("TOTAL GENERAL VISIBLE", len(df_f))
-    else:
-        st.write("No hay elementos con los filtros seleccionados.")
+else:
+    st.warning("⚠️ Sube el XML y la Imagen para comenzar.")
