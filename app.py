@@ -99,6 +99,7 @@ if xml_file and img_file:
     colores_unicos = sorted(df["color_norm"].unique().tolist())
     conteo_json = df.groupby(["tipo", "color_norm", "tamaño"]).size().reset_index(name="Cant").to_json(orient='records')
 
+    # Usamos dobles llaves {{ }} para que Python las ignore y lleguen al HTML/JS correctamente
     html_report = f"""
     <!DOCTYPE html>
     <html>
@@ -121,7 +122,7 @@ if xml_file and img_file:
     <body>
         <div class="container-fluid">
             <div class="header-box text-center">
-                <h2 class="mb-0">💎 {nombre_modelo.upper() if nombre_modelo else 'REPORTE DE COMPONENTES'}</h2>
+                <h2 class="mb-0">💎 {nombre_modelo.upper() if nombre_modelo else 'REPORTE DE MOSAICO'}</h2>
                 <small>Imagen: {img_file.name}</small>
             </div>
 
@@ -161,8 +162,9 @@ if xml_file and img_file:
                 if(mode === 'color') currentColor = val;
 
                 fullTraces.forEach(trace => {{
-                    const tName = trace.customdata[0].tipo.toLowerCase();
-                    const cName = trace.customdata[0].color.toLowerCase();
+                    const tData = trace.customdata[0];
+                    const tName = tData.tipo.toLowerCase();
+                    const cName = tData.color.toLowerCase();
                     
                     const matchType = (currentType === 'all' || tName === currentType.toLowerCase());
                     const matchColor = (currentColor === 'all' || cName === currentColor.toLowerCase());
@@ -200,7 +202,7 @@ if xml_file and img_file:
                         html += `<tr><td>${{row.color_norm}}</td><td>${{row.tamaño}}</td><td>${{row.Cant}}</td></tr>`;
                     }});
                     html += `</tbody></table>`;
-                }
+                }}
                 container.innerHTML = html || '<p class="text-muted">No hay elementos con estos filtros.</p>';
                 document.getElementById('total-val').innerText = 'Total Visible: ' + total;
             }}
@@ -221,6 +223,7 @@ if xml_file and img_file:
 
 else:
     st.info("Sube los archivos para comenzar. Puedes asignar un nombre al modelo en el panel izquierdo.")
+
 
 
 
