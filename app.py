@@ -33,7 +33,8 @@ def normalizar_color(c):
 def ajustar_color_por_tipo(row):
     tipo, color = row["tipo"].lower(), row["color_norm"]
     if tipo == "balin" and color not in ["plata", "dorado"]: return "plata"
-    if tipo == "dicroico" and color == "sin_color"]: return "rosa"
+    # LÍNEA CORREGIDA AQUÍ:
+    if tipo == "dicroico" and color == "sin_color": return "rosa"
     return color
 
 # =========================
@@ -161,7 +162,6 @@ if xml_file and img_file:
             Plotly.newPlot('plot-area', fullTraces, layout, config);
 
             function filterData(mode, val, btn) {{
-                // 1. Manejo visual de botones
                 const parent = btn.parentElement;
                 const buttons = parent.querySelectorAll('.btn-filter');
                 const activeClass = mode === 'tipo' ? 'btn-primary' : 'btn-success';
@@ -175,7 +175,6 @@ if xml_file and img_file:
                 btn.classList.remove(outlineClass);
                 btn.classList.add(activeClass);
 
-                // 2. Lógica de filtrado
                 if(mode === 'tipo') currentType = val;
                 if(mode === 'color') currentColor = val;
 
@@ -241,7 +240,5 @@ if xml_file and img_file:
 
 else:
     st.info("Sube los archivos para comenzar. Puedes asignar un nombre al modelo en el panel izquierdo.")
-
-
 
 
