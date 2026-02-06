@@ -3,12 +3,11 @@ import xml.etree.ElementTree as ET
 import pandas as pd
 from PIL import Image
 import base64
-import json
 from io import BytesIO
 
-# =========================
+# =========================================================
 # CONFIGURACIÓN Y CATÁLOGO
-# =========================
+# =========================================================
 st.set_page_config(page_title="Gestor de Mosaicos Pro", layout="wide")
 
 COLOR_CATALOG = {
@@ -46,9 +45,9 @@ def ajustar_color_por_tipo(row):
     if tipo == "balin" and color not in ["plata", "dorado"]: return "plata"
     return color
 
-# =========================
-# INTERFAZ Y PROCESAMIENTO
-# =========================
+# =========================================================
+# LÓGICA DE CARGA
+# =========================================================
 st.sidebar.title("💎 Panel de Control")
 nombre_modelo = st.sidebar.text_input("Nombre del Modelo", placeholder="Ej: PB-8612 A")
 xml_file = st.sidebar.file_uploader("1. Subir XML", type=["xml"])
@@ -88,9 +87,9 @@ if xml_file and img_file:
     colores_unicos = sorted(df["color_norm"].unique().tolist())
     titulo_final = f"Componentes {nombre_modelo}" if nombre_modelo else "Componentes"
 
-    # =========================
-    # REPORTE HTML (LLAVES DUPLICADAS {{ }} PARA EVITAR SYNTAX ERROR)
-    # =========================
+    # =========================================================
+    # REPORTE HTML CON TABLAS INTERACTIVAS Y BANNER DINÁMICO
+    # =========================================================
     html_report = f"""
     <!DOCTYPE html>
     <html>
@@ -100,60 +99,59 @@ if xml_file and img_file:
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
         <script src="https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/openseadragon.min.js"></script>
         <style>
-            body {{ background-color: #f8f9fa; padding: 0; margin: 0; font-family: 'Segoe UI', sans-serif; }}
+            body {{ background-color: #f4f7f6; padding: 0; margin: 0; font-family: 'Segoe UI', sans-serif; }}
             .header {{ background: #2c3e50; color: white; padding: 15px; text-align: center; border-bottom: 4px solid #1abc9c; }}
+            
             #info-bar {{
                 position: -webkit-sticky; position: sticky; top: 0; z-index: 2000;
-                background: #fff9c4; color: #333; padding: 12px; text-align: center;
-                font-weight: bold; border-bottom: 2px solid #fbc02d; font-size: 16px;
-                box-shadow: 0 2px 8px rgba(0,0,0,0.1); min-height: 50px;
+                background: #e0f2f1; color: #2c3e50; padding: 12px; text-align: center;
+                font-weight: bold; border-bottom: 2px solid #1abc9c; font-size: 16px;
+                transition: all 0.3s ease; min-height: 50px;
             }}
-            #workspace {{ background: #1a1a1a; position: relative; display: flex; flex-direction: column; }}
-            #viewer-container {{ width: 100%; height: 75vh; background: #000; }}
-            .custom-nav {{
-                position: absolute; top: 65px; left: 15px; z-index: 1005;
-                display: flex; flex-direction: column; gap: 10px;
-            }}
-            .nav-btn {{
-                width: 44px; height: 44px; border-radius: 10px; border: 2px solid white;
-                color: white; font-size: 24px; font-weight: bold; display: flex;
-                align-items: center; justify-content: center; cursor: pointer;
-                box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-            }}
-            .btn-zoom-in {{ background-color: #1abc9c !important; }}
-            .btn-zoom-out {{ background-color: #ffb7c5 !important; color: #333 !important; }}
-            .btn-home {{ background-color: #3498db !important; }}
-            .btn-fs {{
-                position: absolute; top: 65px; right: 15px; z-index: 1005;
-                background: #ffffff; border: 2px solid #2c3e50; padding: 10px 20px;
-                border-radius: 30px; font-weight: bold; cursor: pointer;
-            }}
+
+            #workspace {{ background: #1a1a1a; position: relative; }}
+            #viewer-container {{ width: 100%; height: 70vh; background: #000; }}
+            
+            .custom-nav {{ position: absolute; top: 65px; left: 15px; z-index: 1005; display: flex; flex-direction: column; gap: 8px; }}
+            .nav-btn {{ width: 44px; height: 44px; border-radius: 8px; border: 2px solid white; color: white; font-size: 22px; font-weight: bold; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }}
+            .btn-zoom-in {{ background: #1abc9c !important; }}
+            .btn-zoom-out {{ background: #ffb7c5 !important; color: #333 !important; }}
+            .btn-home {{ background: #3498db !important; }}
+            .btn-fs {{ position: absolute; top: 65px; right: 15px; z-index: 1005; background: #fff; border: 2px solid #2c3e50; padding: 8px 16px; border-radius: 20px; font-weight: bold; cursor: pointer; }}
+
             .dot {{ width: 14px; height: 14px; border-radius: 50%; border: 2px solid white; cursor: pointer; }}
-            .dot.selected {{ border: 3px solid #fff !important; box-shadow: 0 0 12px 4px #fff; transform: scale(1.6); z-index: 999 !important; }}
-            .p-container {{ padding: 15px; }}
-            .filter-card {{ background: white; padding: 15px; border-radius: 12px; margin-bottom: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }}
-            .category-header {{ background: #e8f4fd; padding: 10px 15px; border-radius: 8px; color: #2980b9; display: flex; justify-content: space-between; margin-top: 20px; font-weight: bold; border-left: 6px solid #3498db; }}
-            .total-banner {{ background: #2c3e50; color: white; padding: 18px; border-radius: 12px; text-align: center; font-size: 1.4rem; font-weight: bold; margin-top: 30px; }}
+            .dot.selected {{ border: 3px solid #fff !important; box-shadow: 0 0 15px #fff; transform: scale(1.6); z-index: 999 !important; }}
+
+            /* Estilo de Tabla Interactiva solicitado */
+            .summary-card {{ background: white; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); padding: 20px; margin: 20px 0; }}
+            .category-row {{ background: #f8f9fa; border-left: 5px solid #3498db; padding: 10px 15px; margin-top: 15px; font-weight: bold; display: flex; justify-content: space-between; align-items: center; border-radius: 4px; }}
+            .item-table {{ width: 100%; margin-bottom: 0; }}
+            .item-table tr {{ transition: background 0.2s; cursor: default; }}
+            .item-table tr:hover {{ background-color: #f1f8ff; }}
+            .item-table td {{ padding: 10px 15px; border-bottom: 1px solid #eee; }}
+            
+            .total-banner {{ background: #2c3e50; color: white; padding: 20px; border-radius: 8px; text-align: center; font-size: 1.5rem; font-weight: bold; margin-top: 25px; }}
+            .filter-section {{ background: white; padding: 15px; border-radius: 12px; margin: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }}
         </style>
     </head>
     <body>
         <div class="header"><h2>{titulo_final}</h2></div>
-        <div class="p-container">
-            <div class="filter-card">
-                <div class="mb-2">
-                    <small class="text-muted fw-bold">TIPO:</small>
-                    <button class="btn btn-primary btn-sm rounded-pill px-3" onclick="updateFilters('tipo', 'all', this)">TODOS</button>
-                    {' '.join([f'<button class="btn btn-outline-primary btn-sm rounded-pill px-3 mx-1" onclick="updateFilters(\'tipo\', \'{t}\', this)">{t.upper()}</button>' for t in tipos_unicos])}
-                </div>
-                <div>
-                    <small class="text-muted fw-bold">COLOR:</small>
-                    <button class="btn btn-success btn-sm rounded-pill px-3" onclick="updateFilters('color', 'all', this)">TODOS</button>
-                    {' '.join([f'<button class="btn btn-outline-success btn-sm rounded-pill px-3 mx-1" onclick="updateFilters(\'color\', \'{c}\', this)">{c.replace("_", " ").upper()}</button>' for c in colores_unicos])}
-                </div>
+        
+        <div class="filter-section">
+            <div class="mb-2">
+                <small class="fw-bold text-muted">TIPO:</small>
+                <button class="btn btn-primary btn-sm rounded-pill px-3" onclick="updateFilters('tipo', 'all', this)">TODOS</button>
+                {' '.join([f'<button class="btn btn-outline-primary btn-sm rounded-pill px-3 mx-1" onclick="updateFilters(\'tipo\', \'{t}\', this)">{t.upper()}</button>' for t in tipos_unicos])}
+            </div>
+            <div>
+                <small class="fw-bold text-muted">COLOR:</small>
+                <button class="btn btn-success btn-sm rounded-pill px-3" onclick="updateFilters('color', 'all', this)">TODOS</button>
+                {' '.join([f'<button class="btn btn-outline-success btn-sm rounded-pill px-3 mx-1" onclick="updateFilters(\'color\', \'{c}\', this)">{c.replace("_", " ").upper()}</button>' for c in colores_unicos])}
             </div>
         </div>
+
         <div id="workspace">
-            <div id="info-bar">Selecciona un elemento en la imagen</div>
+            <div id="info-bar">Selecciona una pieza para ver su detalle técnico</div>
             <div class="custom-nav">
                 <div id="btn-in" class="nav-btn btn-zoom-in">+</div>
                 <div id="btn-out" class="nav-btn btn-zoom-out">−</div>
@@ -162,7 +160,10 @@ if xml_file and img_file:
             <button class="btn-fs" onclick="toggleFS()">📺 Pantalla Completa</button>
             <div id="viewer-container"></div>
         </div>
-        <div class="p-container"><div id="tables-output"></div></div>
+
+        <div class="container-fluid">
+            <div class="summary-card" id="tables-output"></div>
+        </div>
 
         <script>
             const puntos = {puntos_json};
@@ -176,17 +177,17 @@ if xml_file and img_file:
                 gestureSettingsMouse: {{ clickToZoom: false, dblClickToZoom: false }}
             }});
 
+            let filterT = 'all', filterC = 'all', lastSelected = null;
+
             document.getElementById('btn-in').onclick = () => viewer.viewport.zoomBy(1.4);
             document.getElementById('btn-out').onclick = () => viewer.viewport.zoomBy(0.7);
             document.getElementById('btn-home').onclick = () => viewer.viewport.goHome();
-
+            
             function toggleFS() {{
                 const el = document.getElementById("workspace");
                 if (!document.fullscreenElement) el.requestFullscreen();
                 else document.exitFullscreen();
             }}
-
-            let filterT = 'all', filterC = 'all', lastSelected = null;
 
             viewer.addHandler('open', drawPoints);
 
@@ -195,16 +196,25 @@ if xml_file and img_file:
                 const filtered = puntos.filter(p => {{
                     return (filterT === 'all' || p.tipo === filterT) && (filterC === 'all' || p.color_norm === filterC);
                 }});
+                
                 filtered.forEach(p => {{
                     const elt = document.createElement("div");
                     elt.className = "dot";
                     elt.style.backgroundColor = p.color_plot;
+                    
                     elt.addEventListener('pointerdown', (e) => {{
                         e.stopPropagation();
                         if(lastSelected) lastSelected.classList.remove('selected');
-                        elt.classList.add('selected'); lastSelected = elt;
-                        document.getElementById('info-bar').innerHTML = "SELECCIONADO: " + p.tipo.toUpperCase() + " | " + p.color_norm.replace(/_/g, ' ').toUpperCase() + " | " + p.tamaño;
+                        elt.classList.add('selected'); 
+                        lastSelected = elt;
+                        
+                        // Banner dinámico solicitado: Cambia al color del punto
+                        const bar = document.getElementById('info-bar');
+                        bar.style.backgroundColor = p.color_plot;
+                        bar.style.color = (p.color_plot === 'black' || p.color_plot === 'purple') ? 'white' : '#2c3e50';
+                        bar.innerHTML = "SELECCIONADO: " + p.tipo.toUpperCase() + " | " + p.color_norm.replace(/_/g, ' ').toUpperCase() + " (" + p.tamaño + ")";
                     }});
+                    
                     viewer.addOverlay({{ element: elt, location: new OpenSeadragon.Point(p.x/imgW, p.y/imgW), placement: 'CENTER' }});
                 }});
                 renderSummary(filtered);
@@ -223,21 +233,26 @@ if xml_file and img_file:
             function renderSummary(data) {{
                 const container = document.getElementById('tables-output');
                 const groups = {{}};
-                let total = 0;
+                let totalGral = 0;
+                
                 data.forEach(p => {{
-                    total++;
+                    totalGral++;
                     if(!groups[p.tipo]) groups[p.tipo] = {{}};
                     const key = p.color_norm.replace(/_/g, ' ').toUpperCase() + " (" + p.tamaño + ")";
                     groups[p.tipo][key] = (groups[p.tipo][key] || 0) + 1;
                 }});
-                let html = '<div class="filter-card"><h5 class="fw-bold">RESUMEN</h5>';
+
+                let html = '<h4 class="fw-bold mb-4">RESUMEN DE COMPONENTES - {nombre_modelo}</h4>';
                 for(let t in groups) {{
-                    html += '<div class="category-header"><span>' + t.toUpperCase() + '</span></div>';
-                    html += '<table class="table table-sm"><tbody>';
-                    for(let k in groups[t]) html += '<tr><td>' + k + '</td><td class="text-end"><b>' + groups[t][k] + '</b> pz</td></tr>';
+                    let subtotal = Object.values(groups[t]).reduce((a, b) => a + b, 0);
+                    html += '<div class="category-row"><span>' + t.toUpperCase() + '</span><span class="badge bg-primary rounded-pill">' + subtotal + ' piezas</span></div>';
+                    html += '<table class="item-table"><tbody>';
+                    for(let k in groups[t]) {{
+                        html += '<tr><td>' + k + '</td><td class="text-end"><b>' + groups[t][k] + '</b> pz</td></tr>';
+                    }}
                     html += '</tbody></table>';
                 }}
-                html += '<div class="total-banner">TOTAL: ' + total + ' PIEZAS</div></div>';
+                html += '<div class="total-banner">CANTIDAD TOTAL: ' + totalGral + ' PIEZAS</div>';
                 container.innerHTML = html;
             }}
         </script>
@@ -245,5 +260,6 @@ if xml_file and img_file:
     </html>
     """
     st.divider()
-    st.download_button(label="📥 DESCARGAR REPORTE TÉCNICO", data=html_report, file_name=f"{titulo_final}.html", mime="text/html")
+    st.download_button(label="📥 DESCARGAR REPORTE TÉCNICO FINAL", data=html_report, file_name=f"{titulo_final}.html", mime="text/html")
+
 
