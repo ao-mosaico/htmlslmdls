@@ -81,39 +81,47 @@ if xml_file and img_file:
     <html>
     <head>
         <title>Reporte Pro: {nombre_modelo}</title>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=no">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=10.0, user-scalable=yes">
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
         <script src="https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/openseadragon.min.js"></script>
         <style>
             body {{ background-color: #f0f2f5; font-family: sans-serif; margin: 0; padding: 10px; }}
             .header {{ background: #2c3e50; color: white; padding: 20px; border-radius: 12px; text-align: center; margin-bottom: 15px; }}
-            #viewer-container {{ width: 100%; height: 60vh; background: #333; border-radius: 12px; position: relative; }}
+            #viewer-container {{ width: 100%; height: 70vh; background: #333; border-radius: 12px; position: relative; overflow: visible !important; }}
             .filter-card {{ background: white; padding: 15px; border-radius: 12px; margin-bottom: 15px; }}
             .btn-filter {{ border-radius: 20px; font-size: 11px; margin: 2px; text-transform: uppercase; }}
             
-            /* ESTILOS DE LOS PUNTOS */
+            /* PUNTOS MÁS PEQUEÑOS */
             .dot {{ 
-                position: absolute; width: 14px; height: 14px; 
-                border-radius: 50%; border: 1.5px solid white; 
+                position: absolute; width: 10px; height: 10px; 
+                border-radius: 50%; border: 1px solid white; 
                 cursor: pointer; pointer-events: auto; z-index: 10;
-                box-shadow: 0 0 3px rgba(0,0,0,0.5);
+                box-shadow: 0 0 2px rgba(0,0,0,0.5);
                 box-sizing: border-box; 
-                transition: all 0.2s ease;
+                transition: transform 0.2s ease;
             }}
             
-            /* ESTADO ACTIVO (ILUMINADO) */
             .dot.active {{
                 border: 2px solid #fff;
-                box-shadow: 0 0 10px #ffeb3b, 0 0 5px #ffeb3b inset; /* Resplandor amarillo */
-                transform: scale(1.5); /* Crece un 50% */
+                box-shadow: 0 0 12px #ffeb3b, 0 0 5px #ffeb3b inset;
+                transform: scale(1.8);
                 z-index: 100;
             }}
             
+            /* TOOLTIP POSICIONADO RESPECTO AL PUNTO */
             .osd-tooltip {{
                 position: absolute; background: rgba(0,0,0,0.9); color: white;
-                padding: 6px 12px; border-radius: 6px; font-size: 12px;
+                padding: 8px 12px; border-radius: 6px; font-size: 12px;
                 pointer-events: none; display: none; z-index: 1000;
                 white-space: nowrap; border: 1px solid #444;
+                transform: translate(-50%, -120%); /* Centrado sobre el punto */
+                box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            }}
+            /* Flechita del tooltip */
+            .osd-tooltip::after {{
+                content: ""; position: absolute; top: 100%; left: 50%;
+                margin-left: -5px; border-width: 5px; border-style: solid;
+                border-color: rgba(0,0,0,0.9) transparent transparent transparent;
             }}
         </style>
     </head>
@@ -149,7 +157,7 @@ if xml_file and img_file:
             let filterT = 'all';
             let filterC = 'all';
             const tooltip = document.getElementById('tooltip');
-            let currentSelectedDot = null; // Variable para recordar cuál está iluminado
+            let currentSelectedDot = null;
 
             const viewer = OpenSeadragon({{
                 id: "viewer-container",
@@ -158,22 +166,19 @@ if xml_file and img_file:
                     type: 'image',
                     url: '{data_uri}'
                 }},
-                // CONFIGURACIÓN CLAVE PARA EVITAR ZOOM ACCIDENTAL
                 gestureSettingsTouch: {{ 
                     pinchRotate: false,
-                    clickToZoom: false,  // EVITA QUE UN TOQUE HAGA ZOOM/RESET
-                    dblClickToZoom: true // Permite doble toque para zoom si se quiere
+                    clickToZoom: false,
+                    dblClickToZoom: true 
                 }},
-                gestureSettingsMouse: {{
-                    clickToZoom: false
-                }},
+                gestureSettingsMouse: {{ clickToZoom: false }},
                 showNavigationControl: false,
                 defaultZoomLevel: 0,
                 minZoomLevel: 0,
+                maxZoomLevel: 50, // ZOOM EXTREMO SOLICITADO
                 visibilityRatio: 1,
                 constrainDuringPan: true,
-                detectRetina: false,
-                imageSmoothingEnabled: true
+                detectRetina: false
             }});
 
             function drawPoints() {{
@@ -189,41 +194,24 @@ if xml_file and img_file:
                     elt.className = "dot";
                     elt.style.backgroundColor = p.color_plot;
                     
-                    // Función unificada para Click y Touch
                     const handleSelect = (e) => {{
-                        // Detener propagación para que el visor no reciba el "click"
                         e.preventDefault(); 
                         e.stopPropagation();
 
-                        // 1. Quitar iluminación del anterior
-                        if (currentSelectedDot) {{
-                            currentSelectedDot.classList.remove('active');
-                        }}
-
-                        // 2. Iluminar el nuevo
+                        if (currentSelectedDot) currentSelectedDot.classList.remove('active');
                         elt.classList.add('active');
                         currentSelectedDot = elt;
 
-                        // 3. Mostrar Tooltip
+                        // LÓGICA DE TOOLTIP POSICIONADO ARRIBA DEL PUNTO
                         tooltip.style.display = 'block';
                         tooltip.innerHTML = `<b>${{p.tipo.toUpperCase()}}</b><br>${{p.color_norm}} | ${{p.tamaño}}`;
                         
-                        // Calcular posición del tooltip
-                        let clientX, clientY;
-                        if (e.changedTouches && e.changedTouches.length > 0) {{
-                            clientX = e.changedTouches[0].clientX;
-                            clientY = e.changedTouches[0].clientY;
-                        }} else {{
-                            clientX = e.clientX;
-                            clientY = e.clientY;
-                        }}
-                        
-                        tooltip.style.left = (clientX + 15) + 'px';
-                        tooltip.style.top = (clientY - 40) + 'px';
+                        // Obtenemos la posición del elemento en pantalla
+                        const rect = elt.getBoundingClientRect();
+                        tooltip.style.left = (rect.left + rect.width / 2) + 'px';
+                        tooltip.style.top = (rect.top - 10) + 'px';
                     }};
                     
-                    // Usamos listeners estándar
-                    // 'pointerup' o 'click' suelen funcionar mejor que 'touchstart' para selección simple
                     elt.addEventListener('click', handleSelect);
                     elt.addEventListener('touchstart', handleSelect, {{passive: false}});
 
@@ -236,7 +224,15 @@ if xml_file and img_file:
                 renderTables(filtered);
             }}
 
-            // Cerrar tooltip si se toca el fondo (la imagen)
+            // Actualizar posición del tooltip mientras se mueve el mapa
+            viewer.addHandler('animation', function() {{
+                if (currentSelectedDot && tooltip.style.display === 'block') {{
+                    const rect = currentSelectedDot.getBoundingClientRect();
+                    tooltip.style.left = (rect.left + rect.width / 2) + 'px';
+                    tooltip.style.top = (rect.top - 10) + 'px';
+                }}
+            }});
+
             viewer.addHandler('canvas-click', function(event) {{
                 if (!event.originalTarget.classList.contains('dot')) {{
                     tooltip.style.display = 'none';
@@ -282,10 +278,6 @@ if xml_file and img_file:
             }}
 
             viewer.addHandler('open', drawPoints);
-
-            window.addEventListener('resize', function() {{
-                setTimeout(function() {{ viewer.forceRedraw(); }}, 200);
-            }});
         </script>
     </body>
     </html>
@@ -293,11 +285,12 @@ if xml_file and img_file:
 
     st.divider()
     st.download_button(
-        label="📥 DESCARGAR REPORTE: ZOOM PERSISTENTE",
+        label="📥 DESCARGAR REPORTE: ZOOM 50X + PUNTOS PRO",
         data=html_report,
         file_name=f"Reporte_{nombre_modelo}.html",
         mime="text/html"
     )
+
 
 
 
