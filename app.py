@@ -96,17 +96,17 @@ if xml_file and img_file:
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
         <script src="https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/openseadragon.min.js"></script>
         <style>
-            body {{ background-color: #f4f7f6; padding: 0; margin: 0; font-family: 'Segoe UI', sans-serif; }}
+            body {{ background-color: #f4f7f6; padding: 0; margin: 0; font-family: 'Segoe UI', sans-serif; overflow-x: hidden; }}
             .header {{ background: #2c3e50; color: white; padding: 15px; text-align: center; border-bottom: 4px solid #1abc9c; }}
             
             #info-bar {{
-                position: -webkit-sticky; position: sticky; top: 0; z-index: 2000;
+                position: sticky; top: 0; z-index: 2000;
                 background: #f8f9fa; color: #2c3e50; padding: 12px; text-align: center;
                 font-weight: bold; border-bottom: 3px solid #1abc9c; font-size: 18px;
-                transition: all 0.3s ease; min-height: 54px;
+                min-height: 54px; width: 100%;
             }}
 
-            #workspace {{ background: #000; position: relative; width: 100%; height: 75vh; transition: height 0.3s; }}
+            #workspace {{ background: #000; position: relative; width: 100%; height: 75vh; overflow: hidden; }}
             #workspace:fullscreen {{ height: 100vh !important; width: 100vw !important; }}
             #viewer-container {{ width: 100%; height: 100%; }}
             
@@ -120,10 +120,12 @@ if xml_file and img_file:
             .dot {{ width: 14px; height: 14px; border-radius: 50%; border: 2px solid white; cursor: pointer; }}
             .dot.selected {{ border: 3px solid #fff !important; box-shadow: 0 0 15px #fff; transform: scale(1.6); z-index: 999 !important; }}
 
-            .summary-card {{ background: white; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); padding: 20px; margin: 20px 0; }}
+            /* Ajuste para evitar que el zoom corte el reporte */
+            .report-container {{ position: relative; z-index: 1; background: #f4f7f6; padding-top: 20px; }}
+            .summary-card {{ background: white; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); padding: 25px; margin-bottom: 40px; }}
+            
             .category-row {{ background: #f1f4f8; border-left: 5px solid #3498db; padding: 10px 15px; margin-top: 15px; font-weight: bold; display: flex; justify-content: space-between; align-items: center; border-radius: 4px; }}
-            .item-table {{ width: 100%; }}
-            .item-table tr:hover {{ background-color: #f1f8ff; }}
+            .item-table {{ width: 100%; margin-bottom: 10px; }}
             .item-table td {{ padding: 10px 15px; border-bottom: 1px solid #eee; }}
             
             .total-banner {{ background: #2c3e50; color: white; padding: 20px; border-radius: 8px; text-align: center; font-size: 1.5rem; font-weight: bold; margin-top: 25px; }}
@@ -158,7 +160,7 @@ if xml_file and img_file:
             <div id="viewer-container"></div>
         </div>
 
-        <div class="container-fluid">
+        <div class="container-fluid report-container">
             <div class="summary-card" id="tables-output"></div>
         </div>
 
@@ -211,7 +213,6 @@ if xml_file and img_file:
                     renderSummary([]);
                     return;
                 }} else {{
-                    // RESET DEL BANNER CUANDO HAY PUNTOS VISIBLES
                     bar.innerHTML = "Selecciona un punto para ver su detalle";
                     bar.style.backgroundColor = "#f8f9fa";
                     bar.style.color = "#2c3e50";
@@ -258,7 +259,6 @@ if xml_file and img_file:
                     groups[p.tipo][key] = (groups[p.tipo][key] || 0) + 1;
                 }});
 
-                // REGRESO AL TÍTULO "RESUMEN DE COMPONENTES"
                 let html = '<h4 class="fw-bold mb-4">RESUMEN DE COMPONENTES</h4>';
                 for(let t in groups) {{
                     let subtotal = Object.values(groups[t]).reduce((a, b) => a + b, 0);
@@ -312,5 +312,4 @@ if xml_file and img_file:
     </html>
     """
     st.divider()
-    st.download_button(label="📥 DESCARGAR REPORTE TÉCNICO ACTUALIZADO", data=html_report, file_name=f"{titulo_final}.html", mime="text/html")
-
+    st.download_button(label="📥 DESCARGAR REPORTE FINAL CORREGIDO", data=html_report, file_name=f"{titulo_final}.html", mime="text/html")
