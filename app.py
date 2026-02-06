@@ -84,61 +84,61 @@ if xml_file and img_file:
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
         <script src="https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/openseadragon.min.js"></script>
         <style>
-            body {{ background-color: #f1f3f4; padding: 10px; font-family: 'Segoe UI', sans-serif; }}
-            .header {{ background: #2c3e50; color: white; padding: 15px; border-radius: 10px; text-align: center; margin-bottom: 15px; }}
+            body {{ background-color: #f1f3f4; padding: 0; margin: 0; font-family: 'Segoe UI', sans-serif; }}
+            .p-container {{ padding: 10px; }}
+            .header {{ background: #2c3e50; color: white; padding: 15px; text-align: center; }}
             
             .filter-card {{ background: white; padding: 15px; border-radius: 10px; margin-bottom: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }}
             
+            /* BANNER FIJO AL HACER SCROLL */
             #info-bar {{
+                position: -webkit-sticky;
+                position: sticky;
+                top: 0;
+                z-index: 2000;
                 background: #fff9c4;
                 color: #333;
                 padding: 12px;
-                border-radius: 10px;
-                margin-bottom: 10px;
                 text-align: center;
                 font-weight: bold;
-                border: 2px dashed #fbc02d;
+                border-bottom: 2px solid #fbc02d;
                 font-size: 15px;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
             }}
 
-            #viewer-container {{ width: 100%; height: 65vh; background: #1a1a1a; border-radius: 10px; border: 1px solid #ccc; }}
+            /* CONTENEDOR DE TRABAJO (Para Pantalla Completa) */
+            #workspace {{ background: #1a1a1a; position: relative; display: flex; flex-direction: column; }}
+            #viewer-container {{ width: 100%; height: 75vh; background: #000; }}
             
             .dot {{ 
                 width: 14px; height: 14px; 
                 border-radius: 50%; border: 2px solid white; 
-                cursor: pointer; z-index: 10;
+                cursor: pointer;
             }}
 
-            /* ILUMINACIÓN DEL PUNTO SELECCIONADO */
+            /* REDUCIDO EL CRECIMIENTO (1.8x) */
             .dot.selected {{
                 border: 3px solid #fff !important;
-                box-shadow: 0 0 20px 8px #fff, 0 0 15px 4px #ffeb3b;
-                transform: scale(2.5);
+                box-shadow: 0 0 15px 5px #fff, 0 0 10px 2px #ffeb3b;
+                transform: scale(1.8);
                 z-index: 999 !important;
             }}
 
+            .btn-fs {{
+                position: absolute; top: 10px; right: 10px; z-index: 1001;
+                background: rgba(255,255,255,0.8); border: none; padding: 8px 12px;
+                border-radius: 5px; font-weight: bold; cursor: pointer;
+            }}
+
             .category-header {{
-                background: #e1f5fe;
-                padding: 8px 15px;
-                border-radius: 6px;
-                color: #01579b;
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                margin-top: 20px;
-                font-weight: bold;
-                border-left: 5px solid #0288d1;
+                background: #e1f5fe; padding: 8px 15px; border-radius: 6px;
+                color: #01579b; display: flex; justify-content: space-between;
+                align-items: center; margin-top: 20px; font-weight: bold; border-left: 5px solid #0288d1;
             }}
             
             .total-banner {{
-                background: #1976d2;
-                color: white;
-                padding: 15px;
-                border-radius: 10px;
-                text-align: center;
-                font-size: 1.3rem;
-                font-weight: bold;
-                margin-top: 25px;
+                background: #1976d2; color: white; padding: 15px; border-radius: 10px;
+                text-align: center; font-size: 1.3rem; font-weight: bold; margin-top: 25px;
             }}
         </style>
     </head>
@@ -147,24 +147,30 @@ if xml_file and img_file:
             <h2 style="font-size: 1.2rem; margin: 0;">REPORTE TÉCNICO: {nombre_modelo.upper() if nombre_modelo else 'S/N'}</h2>
         </div>
 
-        <div class="filter-card">
-            <div class="mb-2">
-                <small class="text-muted fw-bold">TIPO:</small>
-                <button class="btn btn-primary btn-sm rounded-pill px-3" onclick="updateFilters('tipo', 'all', this)">TODOS</button>
-                {' '.join([f'<button class="btn btn-outline-primary btn-sm rounded-pill px-3 mx-1" onclick="updateFilters(\'tipo\', \'{t}\', this)">{t}</button>' for t in tipos_unicos])}
-            </div>
-            <div>
-                <small class="text-muted fw-bold">COLOR:</small>
-                <button class="btn btn-success btn-sm rounded-pill px-3" onclick="updateFilters('color', 'all', this)">TODOS</button>
-                {' '.join([f'<button class="btn btn-outline-success btn-sm rounded-pill px-3 mx-1" onclick="updateFilters(\'color\', \'{c}\', this)">{c}</button>' for c in colores_unicos])}
+        <div class="p-container">
+            <div class="filter-card">
+                <div class="mb-2">
+                    <small class="text-muted fw-bold">TIPO:</small>
+                    <button class="btn btn-primary btn-sm rounded-pill px-3" onclick="updateFilters('tipo', 'all', this)">TODOS</button>
+                    {' '.join([f'<button class="btn btn-outline-primary btn-sm rounded-pill px-3 mx-1" onclick="updateFilters(\'tipo\', \'{t}\', this)">{t}</button>' for t in tipos_unicos])}
+                </div>
+                <div>
+                    <small class="text-muted fw-bold">COLOR:</small>
+                    <button class="btn btn-success btn-sm rounded-pill px-3" onclick="updateFilters('color', 'all', this)">TODOS</button>
+                    {' '.join([f'<button class="btn btn-outline-success btn-sm rounded-pill px-3 mx-1" onclick="updateFilters(\'color\', \'{c}\', this)">{c}</button>' for c in colores_unicos])}
+                </div>
             </div>
         </div>
 
-        <div id="info-bar">Toca un punto en la imagen para ver el detalle</div>
-
-        <div id="viewer-container"></div>
+        <div id="workspace">
+            <div id="info-bar">Toca un punto en la imagen para ver el detalle</div>
+            <button class="btn-fs" onclick="toggleFullScreen()">📺 Pantalla Completa</button>
+            <div id="viewer-container"></div>
+        </div>
         
-        <div class="filter-card mt-3" id="tables-output"></div>
+        <div class="p-container">
+            <div class="filter-card" id="tables-output"></div>
+        </div>
 
         <script>
             const puntos = {puntos_json};
@@ -180,15 +186,27 @@ if xml_file and img_file:
                 id: "viewer-container",
                 prefixUrl: "https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/images/",
                 tileSources: {{ type: 'image', url: '{data_uri}' }},
-                showNavigationControl: false,
+                // BOTONES DE ZOOM HABILITADOS
+                showNavigationControl: true,
+                navigationControlAnchor: OpenSeadragon.ControlAnchor.TOP_LEFT,
                 maxZoomLevel: 60,
-                // LIMITAR ZOOM OUT Y DESPLAZAMIENTO
                 minZoomImageRatio: 1.0,
                 visibilityRatio: 1.0,
                 constrainDuringPan: true,
                 gestureSettingsTouch: {{ clickToZoom: false, dblClickToZoom: false }},
                 gestureSettingsMouse: {{ clickToZoom: false, dblClickToZoom: false }}
             }});
+
+            function toggleFullScreen() {{
+                const elem = document.getElementById("workspace");
+                if (!document.fullscreenElement) {{
+                    elem.requestFullscreen().catch(err => {{
+                        alert(`Error al intentar modo pantalla completa: ${{err.message}}`);
+                    }});
+                }} else {{
+                    document.exitFullscreen();
+                }}
+            }}
 
             function drawPoints() {{
                 viewer.clearOverlays();
@@ -252,11 +270,9 @@ if xml_file and img_file:
                 }});
 
                 let html = '<h5 class="text-dark border-bottom pb-2 fw-bold">RESUMEN DE COMPONENTES - ' + modeloActivo + '</h5>';
-                
                 for(let t in groups) {{
                     let subtotal = 0;
                     for(let k in groups[t]) {{ subtotal += groups[t][k]; }}
-                    
                     html += '<div class="category-header"><span>' + t.toUpperCase() + '</span><span>(' + subtotal + ' piezas)</span></div>';
                     html += '<table class="table table-sm table-striped mb-0 mt-1" style="font-size: 11px;"><tbody>';
                     for(let k in groups[t]) {{
@@ -264,7 +280,6 @@ if xml_file and img_file:
                     }}
                     html += '</tbody></table>';
                 }}
-                
                 html += '<div class="total-banner">TOTAL GENERAL: ' + totalGral + ' COMPONENTES</div>';
                 container.innerHTML = html;
             }}
@@ -277,7 +292,7 @@ if xml_file and img_file:
 
     st.divider()
     st.download_button(
-        label="📥 DESCARGAR REPORTE FINAL OPTIMIZADO",
+        label="📥 DESCARGAR REPORTE CON PANTALLA COMPLETA Y ZOOM",
         data=html_report,
         file_name=f"Reporte_{nombre_modelo}.html",
         mime="text/html"
