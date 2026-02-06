@@ -84,110 +84,119 @@ if xml_file and img_file:
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
         <script src="https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/openseadragon.min.js"></script>
         <style>
-            body {{ background-color: #f8f9fa; margin: 0; padding: 10px; }}
+            body {{ background-color: #f8f9fa; padding: 10px; font-family: sans-serif; }}
             .header {{ background: #2c3e50; color: white; padding: 15px; border-radius: 12px; text-align: center; margin-bottom: 10px; }}
-            
-            /* Contenedor del Visor */
-            #viewer-wrapper {{ position: relative; width: 100%; height: 70vh; border-radius: 12px; overflow: hidden; border: 2px solid #ddd; }}
-            #viewer-container {{ width: 100%; height: 100%; background: #222; }}
-            
+            #viewer-container {{ width: 100%; height: 70vh; background: #222; border-radius: 12px; border: 2px solid #ddd; }}
             .filter-card {{ background: white; padding: 12px; border-radius: 12px; margin-bottom: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }}
             
-            .dot {{ width: 10px; height: 10px; border-radius: 50%; border: 1px solid white; cursor: pointer; }}
-            .dot.active {{ border: 2px solid #fff; box-shadow: 0 0 10px #ffeb3b, 0 0 5px #ffeb3b inset; transform: scale(1.6); }}
+            /* PUNTOS PEQUEÑOS */
+            .dot {{ width: 8px; height: 8px; border-radius: 50%; border: 1px solid white; cursor: pointer; z-index: 10; }}
+            .dot.active {{ border: 2px solid #fff; box-shadow: 0 0 10px #ffeb3b; transform: scale(1.5); z-index: 20; }}
 
-            /* TOOLTIP POSICIONADO DENTRO DEL CONTENEDOR */
-            #floating-info {{
-                position: absolute;
-                background: rgba(0, 0, 0, 0.95);
-                color: #fff;
+            /* CAJA DE INFORMACIÓN */
+            .info-box {{
+                background: rgba(0, 0, 0, 0.9);
+                color: white;
                 padding: 8px 12px;
                 border-radius: 6px;
-                font-size: 12px;
-                display: none;
-                z-index: 1000;
-                pointer-events: none;
+                font-size: 11px;
                 border: 1px solid #ffeb3b;
-                text-align: center;
                 white-space: nowrap;
+                pointer-events: none;
+                z-index: 1000;
+                box-shadow: 0 4px 15px rgba(0,0,0,0.5);
             }}
-            .total-banner {{ background: #e3f2fd; border: 2px solid #2196f3; color: #0d47a1; padding: 10px; border-radius: 8px; font-weight: bold; text-align: center; margin-top: 15px; }}
+            .total-box {{
+                background: #0d6efd;
+                color: white;
+                padding: 15px;
+                border-radius: 10px;
+                text-align: center;
+                font-weight: bold;
+                font-size: 1.2rem;
+                margin-top: 15px;
+            }}
         </style>
     </head>
     <body>
         <div class="header">
-            <h2 style="font-size: 1.1rem; margin: 0;">REPORTE: {nombre_modelo.upper() if nombre_modelo else 'SIN NOMBRE'}</h2>
+            <h2 style="font-size: 1.1rem; margin: 0;">REPORTE: {nombre_modelo.upper() if nombre_modelo else 'MODELO'}</h2>
         </div>
 
         <div class="filter-card">
             <div class="mb-2">
-                <small class="text-muted d-block mb-1">TIPO:</small>
+                <small class="text-muted d-block">TIPO:</small>
                 <button class="btn btn-primary btn-sm rounded-pill" onclick="updateFilters('tipo', 'all', this)">TODOS</button>
                 {' '.join([f'<button class="btn btn-outline-primary btn-sm rounded-pill mx-1" onclick="updateFilters(\'tipo\', \'{t}\', this)">{t}</button>' for t in tipos_unicos])}
             </div>
             <div>
-                <small class="text-muted d-block mb-1">COLOR:</small>
+                <small class="text-muted d-block">COLOR:</small>
                 <button class="btn btn-success btn-sm rounded-pill" onclick="updateFilters('color', 'all', this)">TODOS</button>
                 {' '.join([f'<button class="btn btn-outline-success btn-sm rounded-pill mx-1" onclick="updateFilters(\'color\', \'{c}\', this)">{c}</button>' for c in colores_unicos])}
             </div>
         </div>
 
-        <div id="viewer-wrapper">
-            <div id="viewer-container"></div>
-            <div id="floating-info"></div>
-        </div>
-
+        <div id="viewer-container"></div>
         <div class="filter-card mt-3" id="tables-output"></div>
 
         <script>
-            const puntos = {puntos_json};
+            const puntosData = {puntos_json};
             const imgW = {width};
-            const imgH = {height};
             let filterT = 'all';
             let filterC = 'all';
             let currentSelectedDot = null;
-            let currentPointData = null;
-            
-            const tooltip = document.getElementById('floating-info');
+            let currentInfoOverlay = null;
 
             const viewer = OpenSeadragon({{
                 id: "viewer-container",
                 prefixUrl: "https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/images/",
                 tileSources: {{ type: 'image', url: '{data_uri}' }},
-                gestureSettingsTouch: {{ clickToZoom: false, dblClickToZoom: true }},
-                gestureSettingsMouse: {{ clickToZoom: false }},
                 showNavigationControl: false,
-                maxZoomLevel: 60,
-                detectRetina: false
+                maxZoomLevel: 80,
+                gestureSettingsTouch: {{ clickToZoom: false, dblClickToZoom: true }}
             }});
 
             function drawPoints() {{
                 viewer.clearOverlays();
-                const filtered = puntos.filter(p => {{
+                currentInfoOverlay = null;
+                
+                const filtered = puntosData.filter(p => {{
                     const matchT = (filterT === 'all' || p.tipo === filterT);
                     const matchC = (filterC === 'all' || p.color_norm === filterC);
                     return matchT && matchC;
                 }});
 
-                filtered.forEach((p) => {{
+                filtered.forEach(p => {{
                     const elt = document.createElement("div");
                     elt.className = "dot";
                     elt.style.backgroundColor = p.color_plot;
                     
-                    const handleAction = (e) => {{
-                        e.preventDefault(); e.stopPropagation();
+                    const handleSelect = (e) => {{
+                        if(e) {{ e.preventDefault(); e.stopPropagation(); }}
+                        
+                        // Quitar selección anterior
                         if (currentSelectedDot) currentSelectedDot.classList.remove('active');
+                        if (currentInfoOverlay) viewer.removeOverlay(currentInfoOverlay);
+
+                        // Activar punto
                         elt.classList.add('active');
                         currentSelectedDot = elt;
-                        currentPointData = p;
-                        
-                        tooltip.style.display = 'block';
-                        tooltip.innerHTML = `<b>${{p.tipo.toUpperCase()}}</b><br>${{p.color_norm}}<br>${{p.tamaño}}`;
-                        updateTooltipPos();
+
+                        // Crear caja de info
+                        const info = document.createElement("div");
+                        info.className = "info-box";
+                        info.innerHTML = "<b>" + p.tipo.toUpperCase() + "</b><br>" + p.color_norm + " | " + p.tamaño;
+
+                        currentInfoOverlay = info;
+                        viewer.addOverlay({{
+                            element: info,
+                            location: new OpenSeadragon.Point(p.x / imgW, p.y / imgW),
+                            placement: OpenSeadragon.Placement.TOP
+                        }});
                     }};
 
-                    elt.addEventListener('click', handleAction);
-                    elt.addEventListener('touchstart', handleAction);
+                    elt.addEventListener('click', handleSelect);
+                    elt.addEventListener('touchstart', handleSelect);
 
                     viewer.addOverlay({{
                         element: elt,
@@ -195,29 +204,9 @@ if xml_file and img_file:
                         placement: OpenSeadragon.Placement.CENTER
                     }});
                 }});
-                renderTables(filtered);
-            }}
-
-            function updateTooltipPos() {{
-                if (!currentSelectedDot || !currentPointData) return;
                 
-                // Cálculo de píxeles relativo al CONTENEDOR del visor, no a la pantalla
-                const viewportPoint = new OpenSeadragon.Point(currentPointData.x / imgW, currentPointData.y / imgW);
-                const pixel = viewer.viewport.pixelFromPoint(viewportPoint, true);
-
-                tooltip.style.left = (pixel.x - tooltip.offsetWidth / 2) + 'px';
-                tooltip.style.top = (pixel.y - tooltip.offsetHeight - 15) + 'px';
+                renderSummary(filtered);
             }}
-
-            // Eventos para que el cuadro siga al zoom/movimiento
-            viewer.addHandler('animation', updateTooltipPos);
-            viewer.addHandler('canvas-drag', updateTooltipPos);
-            viewer.addHandler('canvas-scroll', updateTooltipPos);
-            viewer.addHandler('canvas-click', () => {{
-                tooltip.style.display = 'none';
-                if (currentSelectedDot) currentSelectedDot.classList.remove('active');
-                currentSelectedDot = null;
-            }});
 
             function updateFilters(mode, val, btn) {{
                 const parent = btn.parentElement;
@@ -226,39 +215,40 @@ if xml_file and img_file:
                 parent.querySelectorAll('.btn').forEach(b => {{ b.classList.remove(activeC); b.classList.add(outlineC); }});
                 btn.classList.add(activeC); btn.classList.remove(outlineC);
                 if (mode === 'tipo') filterT = val; else filterC = val;
-                tooltip.style.display = 'none';
                 drawPoints();
             }}
 
-            function renderTables(data) {{
+            function renderSummary(data) {{
                 const container = document.getElementById('tables-output');
                 const groups = {{}};
-                let granTotal = 0;
+                let total = 0;
 
                 data.forEach(p => {{
-                    granTotal++;
+                    total++;
                     if(!groups[p.tipo]) groups[p.tipo] = {{}};
-                    const key = p.color_norm + '|' + p.tamaño;
+                    const key = p.color_norm + " (" + p.tamaño + ")";
                     groups[p.tipo][key] = (groups[p.tipo][key] || 0) + 1;
                 }});
 
                 let html = '<h6 class="text-primary border-bottom pb-2">RESUMEN DE MATERIALES</h6>';
-                for(const t in groups) {{
-                    html += `<div class="mt-2 small"><strong>${{t.toUpperCase()}}</strong></div>
-                             <table class="table table-sm table-striped mb-0" style="font-size: 10px;"><tbody>`;
-                    for(const sk in groups[t]) {{
-                        const [c, tam] = sk.split('|');
-                        html += `<tr><td>${{c}}</td><td>${{tam}}</td><td class="text-end"><b>${{groups[t][sk]}}</b> pz</td></tr>`;
+                for(let t in groups) {{
+                    html += '<div class="mt-2 small"><strong>' + t.toUpperCase() + '</strong></div>';
+                    html += '<table class="table table-sm table-striped mb-0" style="font-size: 10px;"><tbody>';
+                    for(let k in groups[t]) {{
+                        html += '<tr><td>' + k + '</td><td class="text-end"><b>' + groups[t][k] + '</b> pz</td></tr>';
                     }}
                     html += '</tbody></table>';
                 }}
                 
-                // EL TOTAL GENERAL SOLICITADO
-                html += `<div class="total-banner">TOTAL DE COMPONENTES: ${{granTotal}} PIEZAS</div>`;
+                html += '<div class="total-box">TOTAL GENERAL: ' + total + ' COMPONENTES</div>';
                 container.innerHTML = html;
             }}
 
             viewer.addHandler('open', drawPoints);
+            viewer.addHandler('canvas-click', function() {{
+                if (currentInfoOverlay) viewer.removeOverlay(currentInfoOverlay);
+                if (currentSelectedDot) currentSelectedDot.classList.remove('active');
+            }});
         </script>
     </body>
     </html>
@@ -266,7 +256,7 @@ if xml_file and img_file:
 
     st.divider()
     st.download_button(
-        label="📥 DESCARGAR REPORTE CON TOTALES Y CAJAS FIJAS",
+        label="📥 DESCARGAR REPORTE FINAL (SIN ERRORES)",
         data=html_report,
         file_name=f"Reporte_{nombre_modelo}.html",
         mime="text/html"
