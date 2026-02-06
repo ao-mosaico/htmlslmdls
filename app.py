@@ -80,123 +80,150 @@ if xml_file and img_file:
     <html>
     <head>
         <title>Reporte: {nombre_modelo}</title>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=10.0, user-scalable=yes">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
         <script src="https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/openseadragon.min.js"></script>
         <style>
-            body {{ background-color: #f8f9fa; padding: 10px; font-family: sans-serif; }}
-            .header {{ background: #2c3e50; color: white; padding: 15px; border-radius: 12px; text-align: center; margin-bottom: 10px; }}
-            #viewer-container {{ width: 100%; height: 70vh; background: #222; border-radius: 12px; border: 2px solid #ddd; }}
-            .filter-card {{ background: white; padding: 12px; border-radius: 12px; margin-bottom: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }}
+            body {{ background-color: #f4f7f6; margin: 0; padding: 10px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }}
+            .header {{ background: #2c3e50; color: white; padding: 15px; border-radius: 12px; text-align: center; margin-bottom: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }}
             
-            /* PUNTOS PEQUEÑOS */
-            .dot {{ width: 8px; height: 8px; border-radius: 50%; border: 1px solid white; cursor: pointer; z-index: 10; }}
-            .dot.active {{ border: 2px solid #fff; box-shadow: 0 0 10px #ffeb3b; transform: scale(1.5); z-index: 20; }}
+            #main-container {{ position: relative; width: 100%; }}
+            #viewer-container {{ width: 100%; height: 65vh; background: #222; border-radius: 12px; border: 2px solid #34495e; overflow: hidden; }}
+            
+            .filter-card {{ background: white; padding: 15px; border-radius: 12px; margin-bottom: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }}
+            
+            .dot {{ width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid white; cursor: pointer; }}
+            .dot.active {{ border: 2.5px solid #fff; box-shadow: 0 0 15px #f1c40f; transform: scale(1.8); z-index: 999 !important; }}
 
-            /* CAJA DE INFORMACIÓN */
-            .info-box {{
-                background: rgba(0, 0, 0, 0.9);
-                color: white;
-                padding: 8px 12px;
-                border-radius: 6px;
-                font-size: 11px;
-                border: 1px solid #ffeb3b;
-                white-space: nowrap;
+            /* CAJA FLOTANTE REFORZADA */
+            #tooltip {{
+                position: fixed;
+                background: #000;
+                color: #fff;
+                padding: 10px 15px;
+                border-radius: 8px;
+                font-size: 14px;
+                display: none;
+                z-index: 99999;
                 pointer-events: none;
-                z-index: 1000;
-                box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-            }}
-            .total-box {{
-                background: #0d6efd;
-                color: white;
-                padding: 15px;
-                border-radius: 10px;
+                border: 2px solid #f1c40f;
                 text-align: center;
+                box-shadow: 0 8px 16px rgba(0,0,0,0.3);
+            }}
+
+            /* PANEL INFERIOR DE RESPALDO */
+            #info-panel {{
+                background: #fff;
+                border-left: 5px solid #f1c40f;
+                padding: 12px;
+                margin-top: 10px;
+                border-radius: 8px;
+                display: none;
+                box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            }}
+
+            .total-card {{
+                background: linear-gradient(135deg, #3498db, #2980b9);
+                color: white;
+                padding: 20px;
+                border-radius: 12px;
+                text-align: center;
+                font-size: 1.4rem;
                 font-weight: bold;
-                font-size: 1.2rem;
-                margin-top: 15px;
+                margin-top: 20px;
+                box-shadow: 0 4px 15px rgba(52, 152, 219, 0.4);
             }}
         </style>
     </head>
     <body>
+        <div id="tooltip"></div>
+        
         <div class="header">
-            <h2 style="font-size: 1.1rem; margin: 0;">REPORTE: {nombre_modelo.upper() if nombre_modelo else 'MODELO'}</h2>
+            <h2 style="font-size: 1.2rem; margin: 0;">REPORTE TÉCNICO: {nombre_modelo.upper() if nombre_modelo else 'SIN NOMBRE'}</h2>
         </div>
 
         <div class="filter-card">
-            <div class="mb-2">
-                <small class="text-muted d-block">TIPO:</small>
-                <button class="btn btn-primary btn-sm rounded-pill" onclick="updateFilters('tipo', 'all', this)">TODOS</button>
-                {' '.join([f'<button class="btn btn-outline-primary btn-sm rounded-pill mx-1" onclick="updateFilters(\'tipo\', \'{t}\', this)">{t}</button>' for t in tipos_unicos])}
+            <div class="mb-3">
+                <label class="text-muted small fw-bold">TIPO DE PIEZA:</label><br>
+                <button class="btn btn-primary btn-sm rounded-pill px-3" onclick="updateFilters('tipo', 'all', this)">TODOS</button>
+                {' '.join([f'<button class="btn btn-outline-primary btn-sm rounded-pill px-3 mx-1" onclick="updateFilters(\'tipo\', \'{t}\', this)">{t}</button>' for t in tipos_unicos])}
             </div>
             <div>
-                <small class="text-muted d-block">COLOR:</small>
-                <button class="btn btn-success btn-sm rounded-pill" onclick="updateFilters('color', 'all', this)">TODOS</button>
-                {' '.join([f'<button class="btn btn-outline-success btn-sm rounded-pill mx-1" onclick="updateFilters(\'color\', \'{c}\', this)">{c}</button>' for c in colores_unicos])}
+                <label class="text-muted small fw-bold">COLOR:</label><br>
+                <button class="btn btn-success btn-sm rounded-pill px-3" onclick="updateFilters('color', 'all', this)">TODOS</button>
+                {' '.join([f'<button class="btn btn-outline-success btn-sm rounded-pill px-3 mx-1" onclick="updateFilters(\'color\', \'{c}\', this)">{c}</button>' for c in colores_unicos])}
             </div>
         </div>
 
-        <div id="viewer-container"></div>
+        <div id="main-container">
+            <div id="viewer-container"></div>
+        </div>
+
+        <div id="info-panel">
+            <h6 class="text-warning mb-1">Detalle Seleccionado:</h6>
+            <div id="info-content"></div>
+        </div>
+
         <div class="filter-card mt-3" id="tables-output"></div>
 
         <script>
-            const puntosData = {puntos_json};
+            const puntos = {puntos_json};
             const imgW = {width};
+            const imgH = {height};
             let filterT = 'all';
             let filterC = 'all';
             let currentSelectedDot = null;
-            let currentInfoOverlay = null;
+            let currentData = null;
+            
+            const tooltip = document.getElementById('tooltip');
+            const infoPanel = document.getElementById('info-panel');
+            const infoContent = document.getElementById('info-content');
 
             const viewer = OpenSeadragon({{
                 id: "viewer-container",
                 prefixUrl: "https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/images/",
                 tileSources: {{ type: 'image', url: '{data_uri}' }},
                 showNavigationControl: false,
-                maxZoomLevel: 80,
+                maxZoomLevel: 50,
+                defaultZoomLevel: 0,
                 gestureSettingsTouch: {{ clickToZoom: false, dblClickToZoom: true }}
             }});
 
             function drawPoints() {{
                 viewer.clearOverlays();
-                currentInfoOverlay = null;
-                
-                const filtered = puntosData.filter(p => {{
+                const filtered = puntos.filter(p => {{
                     const matchT = (filterT === 'all' || p.tipo === filterT);
                     const matchC = (filterC === 'all' || p.color_norm === filterC);
                     return matchT && matchC;
                 }});
 
-                filtered.forEach(p => {{
+                filtered.forEach((p, idx) => {{
                     const elt = document.createElement("div");
                     elt.className = "dot";
                     elt.style.backgroundColor = p.color_plot;
                     
-                    const handleSelect = (e) => {{
+                    const handleInput = (e) => {{
                         if(e) {{ e.preventDefault(); e.stopPropagation(); }}
                         
-                        // Quitar selección anterior
                         if (currentSelectedDot) currentSelectedDot.classList.remove('active');
-                        if (currentInfoOverlay) viewer.removeOverlay(currentInfoOverlay);
-
-                        // Activar punto
                         elt.classList.add('active');
                         currentSelectedDot = elt;
+                        currentData = p;
 
-                        // Crear caja de info
-                        const info = document.createElement("div");
-                        info.className = "info-box";
-                        info.innerHTML = "<b>" + p.tipo.toUpperCase() + "</b><br>" + p.color_norm + " | " + p.tamaño;
+                        // Mostrar en ambos lugares para asegurar visibilidad
+                        const txt = "<b>" + p.tipo.toUpperCase() + "</b><br>" + p.color_norm + " | " + p.tamaño;
+                        
+                        tooltip.innerHTML = txt;
+                        tooltip.style.display = 'block';
+                        
+                        infoContent.innerHTML = txt;
+                        infoPanel.style.display = 'block';
 
-                        currentInfoOverlay = info;
-                        viewer.addOverlay({{
-                            element: info,
-                            location: new OpenSeadragon.Point(p.x / imgW, p.y / imgW),
-                            placement: OpenSeadragon.Placement.TOP
-                        }});
+                        updateTooltipPos();
                     }};
 
-                    elt.addEventListener('click', handleSelect);
-                    elt.addEventListener('touchstart', handleSelect);
+                    elt.addEventListener('click', handleInput);
+                    elt.addEventListener('touchstart', handleInput);
 
                     viewer.addOverlay({{
                         element: elt,
@@ -204,9 +231,29 @@ if xml_file and img_file:
                         placement: OpenSeadragon.Placement.CENTER
                     }});
                 }});
-                
-                renderSummary(filtered);
+                renderTables(filtered);
             }}
+
+            function updateTooltipPos() {{
+                if (!currentSelectedDot || !currentData) return;
+                
+                const viewportPoint = new OpenSeadragon.Point(currentData.x / imgW, currentData.y / imgW);
+                const pixel = viewer.viewport.pixelFromPoint(viewportPoint, true);
+                const containerRect = document.getElementById('viewer-container').getBoundingClientRect();
+
+                tooltip.style.left = (pixel.x + containerRect.left - tooltip.offsetWidth / 2) + "px";
+                tooltip.style.top = (pixel.y + containerRect.top - tooltip.offsetHeight - 20) + "px";
+            }}
+
+            viewer.addHandler('animation', updateTooltipPos);
+            viewer.addHandler('canvas-drag', updateTooltipPos);
+            viewer.addHandler('canvas-scroll', updateTooltipPos);
+            
+            viewer.addHandler('canvas-click', () => {{
+                tooltip.style.display = 'none';
+                infoPanel.style.display = 'none';
+                if (currentSelectedDot) currentSelectedDot.classList.remove('active');
+            }});
 
             function updateFilters(mode, val, btn) {{
                 const parent = btn.parentElement;
@@ -218,37 +265,34 @@ if xml_file and img_file:
                 drawPoints();
             }}
 
-            function renderSummary(data) {{
+            function renderTables(data) {{
                 const container = document.getElementById('tables-output');
                 const groups = {{}};
-                let total = 0;
+                let totalCount = 0;
 
                 data.forEach(p => {{
-                    total++;
+                    totalCount++;
                     if(!groups[p.tipo]) groups[p.tipo] = {{}};
                     const key = p.color_norm + " (" + p.tamaño + ")";
                     groups[p.tipo][key] = (groups[p.tipo][key] || 0) + 1;
                 }});
 
-                let html = '<h6 class="text-primary border-bottom pb-2">RESUMEN DE MATERIALES</h6>';
+                let html = '<h5 class="text-dark mb-3 border-bottom pb-2">Desglose de Materiales</h5>';
                 for(let t in groups) {{
-                    html += '<div class="mt-2 small"><strong>' + t.toUpperCase() + '</strong></div>';
-                    html += '<table class="table table-sm table-striped mb-0" style="font-size: 10px;"><tbody>';
+                    html += '<div class="mt-3"><strong>' + t.toUpperCase() + '</strong></div>';
+                    html += '<table class="table table-sm table-hover mb-0" style="font-size: 11px;">';
+                    html += '<thead><tr><th>Descripción</th><th class="text-end">Cantidad</th></tr></thead><tbody>';
                     for(let k in groups[t]) {{
-                        html += '<tr><td>' + k + '</td><td class="text-end"><b>' + groups[t][k] + '</b> pz</td></tr>';
+                        html += '<tr><td>' + k + '</td><td class="text-end fw-bold">' + groups[t][k] + ' pz</td></tr>';
                     }}
                     html += '</tbody></table>';
                 }}
                 
-                html += '<div class="total-box">TOTAL GENERAL: ' + total + ' COMPONENTES</div>';
+                html += '<div class="total-card">TOTAL DE COMPONENTES: ' + totalCount + ' PIEZAS</div>';
                 container.innerHTML = html;
             }}
 
             viewer.addHandler('open', drawPoints);
-            viewer.addHandler('canvas-click', function() {{
-                if (currentInfoOverlay) viewer.removeOverlay(currentInfoOverlay);
-                if (currentSelectedDot) currentSelectedDot.classList.remove('active');
-            }});
         </script>
     </body>
     </html>
@@ -256,11 +300,8 @@ if xml_file and img_file:
 
     st.divider()
     st.download_button(
-        label="📥 DESCARGAR REPORTE FINAL (SIN ERRORES)",
+        label="📥 DESCARGAR REPORTE: SOLUCIÓN FINAL CON TOTALES",
         data=html_report,
         file_name=f"Reporte_{nombre_modelo}.html",
         mime="text/html"
     )
-
-
-
