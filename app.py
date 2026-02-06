@@ -100,6 +100,7 @@ if xml_file and img_file:
                 border-bottom: 2px solid #fbc02d;
                 font-size: 16px;
                 box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                min-height: 50px;
             }}
 
             #workspace {{ background: #1a1a1a; position: relative; display: flex; flex-direction: column; }}
@@ -107,33 +108,44 @@ if xml_file and img_file:
             #workspace:fullscreen #viewer-container {{ flex: 1; height: auto; }}
             #viewer-container {{ width: 100%; height: 75vh; background: #000; }}
             
-            /* CONTENEDOR DE BOTONES REAPARECIDOS */
+            /* AJUSTE DE POSICIÓN PARA QUE NO QUEDEN OCULTOS POR EL BANNER */
             .custom-nav {{
-                position: absolute; top: 10px; left: 10px; z-index: 1005;
-                display: flex; flex-direction: column; gap: 8px;
+                position: absolute; 
+                top: 60px; /* Bajamos los botones para que liberen el espacio del banner */
+                left: 15px; 
+                z-index: 1005;
+                display: flex; 
+                flex-direction: column; 
+                gap: 10px;
             }}
             .nav-btn {{
-                width: 40px; height: 40px; border-radius: 8px; border: 2px solid white;
-                color: white; font-size: 20px; font-weight: bold; display: flex;
+                width: 44px; height: 44px; border-radius: 10px; border: 2px solid white;
+                color: white; font-size: 24px; font-weight: bold; display: flex;
                 align-items: center; justify-content: center; cursor: pointer;
-                box-shadow: 0 2px 5px rgba(0,0,0,0.3); transition: transform 0.1s;
-                text-decoration: none;
+                box-shadow: 0 4px 6px rgba(0,0,0,0.3); transition: all 0.2s;
+                text-decoration: none; user-select: none;
             }}
-            .nav-btn:active {{ transform: scale(0.9); }}
+            .nav-btn:hover {{ filter: brightness(1.1); transform: scale(1.05); }}
+            .nav-btn:active {{ transform: scale(0.95); }}
             
             /* Colores solicitados */
             .btn-zoom-in {{ background-color: #1abc9c !important; }} /* Verde Agua */
             .btn-zoom-out {{ background-color: #ffb7c5 !important; color: #333 !important; }} /* Rosa Claro */
             .btn-home {{ background-color: #3498db !important; }} /* Azul */
 
+            .btn-fs {{
+                position: absolute; 
+                top: 60px; /* Bajamos también el botón de pantalla completa */
+                right: 15px; 
+                z-index: 1005;
+                background: #ffffff; border: 2px solid #2c3e50; padding: 10px 20px;
+                border-radius: 30px; font-weight: bold; cursor: pointer; 
+                box-shadow: 0 4px 6px rgba(0,0,0,0.2); transition: all 0.2s;
+            }}
+            .btn-fs:hover {{ background: #f0f0f0; transform: scale(1.05); }}
+
             .dot {{ width: 14px; height: 14px; border-radius: 50%; border: 2px solid white; cursor: pointer; transition: all 0.2s; }}
             .dot.selected {{ border: 3px solid #fff !important; box-shadow: 0 0 12px 4px #fff, 0 0 8px 1px #ffeb3b; transform: scale(1.6); z-index: 999 !important; }}
-
-            .btn-fs {{
-                position: absolute; top: 10px; right: 15px; z-index: 1001;
-                background: #ffffff; border: 2px solid #2c3e50; padding: 8px 16px;
-                border-radius: 30px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            }}
 
             .p-container {{ padding: 15px; }}
             .filter-card {{ background: white; padding: 15px; border-radius: 12px; margin-bottom: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }}
@@ -170,7 +182,7 @@ if xml_file and img_file:
                 <div id="btn-home" class="nav-btn btn-home" title="Reiniciar">🏠</div>
             </div>
 
-            <button class="btn-fs" onclick="toggleFullScreen()">+ Pantalla Completa</button>
+            <button class="btn-fs" onclick="toggleFullScreen()">📺 Pantalla Completa</button>
             <div id="viewer-container"></div>
         </div>
         
@@ -192,7 +204,7 @@ if xml_file and img_file:
                 id: "viewer-container",
                 prefixUrl: "https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/images/",
                 tileSources: {{ type: 'image', url: '{data_uri}' }},
-                showNavigationControl: false, // Usaremos nuestros propios botones manuales
+                showNavigationControl: false, 
                 maxZoomLevel: 60,
                 minZoomImageRatio: 1.0,
                 visibilityRatio: 1.0,
@@ -200,9 +212,8 @@ if xml_file and img_file:
                 gestureSettingsTouch: {{ clickToZoom: false, dblClickToZoom: false }}
             }});
 
-            // Vincular botones manuales a funciones de OpenSeadragon
-            document.getElementById('btn-in').onclick = () => viewer.viewport.zoomBy(1.2);
-            document.getElementById('btn-out').onclick = () => viewer.viewport.zoomBy(0.8);
+            document.getElementById('btn-in').onclick = () => viewer.viewport.zoomBy(1.3);
+            document.getElementById('btn-out').onclick = () => viewer.viewport.zoomBy(0.7);
             document.getElementById('btn-home').onclick = () => viewer.viewport.goHome();
 
             viewer.addHandler('open', drawPoints);
