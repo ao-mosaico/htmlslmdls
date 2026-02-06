@@ -87,9 +87,6 @@ if xml_file and img_file:
     colores_unicos = sorted(df["color_norm"].unique().tolist())
     titulo_final = f"Componentes {nombre_modelo}" if nombre_modelo else "Componentes"
 
-    # =========================================================
-    # REPORTE HTML (Con bloqueo de zoom out excesivo)
-    # =========================================================
     html_report = f"""
     <!DOCTYPE html>
     <html>
@@ -109,8 +106,9 @@ if xml_file and img_file:
                 transition: all 0.3s ease; min-height: 54px;
             }}
 
-            #workspace {{ background: #1a1a1a; position: relative; overflow: hidden; }}
-            #viewer-container {{ width: 100%; height: 70vh; background: #000; }}
+            #workspace {{ background: #000; position: relative; width: 100%; height: 75vh; transition: height 0.3s; }}
+            #workspace:fullscreen {{ height: 100vh !important; width: 100vw !important; }}
+            #viewer-container {{ width: 100%; height: 100%; }}
             
             .custom-nav {{ position: absolute; top: 65px; left: 15px; z-index: 1005; display: flex; flex-direction: column; gap: 8px; }}
             .nav-btn {{ width: 44px; height: 44px; border-radius: 8px; border: 2px solid white; color: white; font-size: 22px; font-weight: bold; display: flex; align-items: center; justify-content: center; cursor: pointer; }}
@@ -174,7 +172,6 @@ if xml_file and img_file:
                 tileSources: {{ type: 'image', url: '{data_uri}' }},
                 showNavigationControl: false,
                 maxZoomLevel: 80,
-                // BLOQUEO DE ZOOM OUT: Evita que la imagen sea más pequeña que el visor
                 minZoomImageRatio: 1.0,
                 visibilityRatio: 1.0,
                 constrainDuringPan: true,
@@ -183,6 +180,13 @@ if xml_file and img_file:
             }});
 
             let filterT = 'all', filterC = 'all', lastSelected = null;
+
+            // Escuchar cambio de pantalla completa para re-centrar
+            document.addEventListener('fullscreenchange', () => {{
+                setTimeout(() => {{
+                    viewer.viewport.goHome();
+                }}, 100);
+            }});
 
             function getContrastColor(hex) {{
                 if (hex.indexOf('#') === 0) hex = hex.slice(1);
@@ -202,9 +206,10 @@ if xml_file and img_file:
             function drawPoints() {{
                 viewer.clearOverlays();
                 if (filterT === 'none') {{
-                    document.getElementById('info-bar').innerHTML = "MODO DE INSPECCIÓN: PUNTOS OCULTOS";
-                    document.getElementById('info-bar').style.backgroundColor = "#f8f9fa";
-                    document.getElementById('info-bar').style.color = "#2c3e50";
+                    const bar = document.getElementById('info-bar');
+                    bar.innerHTML = "MODO DE INSPECCIÓN: PUNTOS OCULTOS";
+                    bar.style.backgroundColor = "#f8f9fa";
+                    bar.style.color = "#2c3e50";
                     renderSummary([]);
                     return;
                 }}
@@ -288,8 +293,13 @@ if xml_file and img_file:
 
             function toggleFS() {{
                 const el = document.getElementById("workspace");
-                if (!document.fullscreenElement) el.requestFullscreen();
-                else document.exitFullscreen();
+                if (!document.fullscreenElement) {{
+                    el.requestFullscreen().catch(err => {{
+                        alert("Error al activar pantalla completa: " + err.message);
+                    }});
+                }} else {{
+                    document.exitFullscreen();
+                }}
             }}
 
             document.getElementById('btn-in').onclick = () => viewer.viewport.zoomBy(1.4);
@@ -300,4 +310,4 @@ if xml_file and img_file:
     </html>
     """
     st.divider()
-    st.download_button(label="📥 DESCARGAR REPORTE TÉCNICO FINAL", data=html_report, file_name=f"{titulo_final}.html", mime="text/html")
+    st.download_button(label="📥 DESCARGAR REPORTE REPARADO", data=html_report, file_name=f"{titulo_final}.html", mime="text/html")
