@@ -148,7 +148,7 @@ if xml_file and img_file:
         </div>
 
         <div id="workspace">
-            <div id="info-bar">Selecciona una pieza para ver su detalle</div>
+            <div id="info-bar">Selecciona un punto para ver su detalle</div>
             <div class="custom-nav">
                 <div id="btn-in" class="nav-btn btn-zoom-in">+</div>
                 <div id="btn-out" class="nav-btn btn-zoom-out">−</div>
@@ -181,11 +181,8 @@ if xml_file and img_file:
 
             let filterT = 'all', filterC = 'all', lastSelected = null;
 
-            // Escuchar cambio de pantalla completa para re-centrar
             document.addEventListener('fullscreenchange', () => {{
-                setTimeout(() => {{
-                    viewer.viewport.goHome();
-                }}, 100);
+                setTimeout(() => {{ viewer.viewport.goHome(); }}, 100);
             }});
 
             function getContrastColor(hex) {{
@@ -205,13 +202,20 @@ if xml_file and img_file:
 
             function drawPoints() {{
                 viewer.clearOverlays();
+                const bar = document.getElementById('info-bar');
+                
                 if (filterT === 'none') {{
-                    const bar = document.getElementById('info-bar');
                     bar.innerHTML = "MODO DE INSPECCIÓN: PUNTOS OCULTOS";
                     bar.style.backgroundColor = "#f8f9fa";
                     bar.style.color = "#2c3e50";
                     renderSummary([]);
                     return;
+                }} else {{
+                    // RESET DEL BANNER CUANDO HAY PUNTOS VISIBLES
+                    bar.innerHTML = "Selecciona un punto para ver su detalle";
+                    bar.style.backgroundColor = "#f8f9fa";
+                    bar.style.color = "#2c3e50";
+                    bar.style.textShadow = "none";
                 }}
 
                 const filtered = puntos.filter(p => {{
@@ -229,7 +233,6 @@ if xml_file and img_file:
                         elt.classList.add('selected'); 
                         lastSelected = elt;
                         
-                        const bar = document.getElementById('info-bar');
                         bar.style.backgroundColor = p.color_plot;
                         const textColor = getContrastColor(p.color_plot);
                         bar.style.color = textColor;
@@ -255,7 +258,8 @@ if xml_file and img_file:
                     groups[p.tipo][key] = (groups[p.tipo][key] || 0) + 1;
                 }});
 
-                let html = '<h4 class="fw-bold mb-4">DETALLE TÉCNICO DE PIEZAS</h4>';
+                // REGRESO AL TÍTULO "RESUMEN DE COMPONENTES"
+                let html = '<h4 class="fw-bold mb-4">RESUMEN DE COMPONENTES</h4>';
                 for(let t in groups) {{
                     let subtotal = Object.values(groups[t]).reduce((a, b) => a + b, 0);
                     html += '<div class="category-row"><span>' + t.toUpperCase() + '</span><span class="badge bg-primary">' + subtotal + ' pz</span></div>';
@@ -294,9 +298,7 @@ if xml_file and img_file:
             function toggleFS() {{
                 const el = document.getElementById("workspace");
                 if (!document.fullscreenElement) {{
-                    el.requestFullscreen().catch(err => {{
-                        alert("Error al activar pantalla completa: " + err.message);
-                    }});
+                    el.requestFullscreen().catch(err => {{ alert("Error: " + err.message); }});
                 }} else {{
                     document.exitFullscreen();
                 }}
@@ -310,4 +312,5 @@ if xml_file and img_file:
     </html>
     """
     st.divider()
-    st.download_button(label="📥 DESCARGAR REPORTE REPARADO", data=html_report, file_name=f"{titulo_final}.html", mime="text/html")
+    st.download_button(label="📥 DESCARGAR REPORTE TÉCNICO ACTUALIZADO", data=html_report, file_name=f"{titulo_final}.html", mime="text/html")
+
