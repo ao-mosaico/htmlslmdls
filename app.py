@@ -110,7 +110,6 @@ if xml_file and img_file:
             #workspace:fullscreen {{ height: 100vh !important; width: 100vw !important; }}
             #viewer-container {{ width: 100%; height: 100%; }}
             
-            /* POSICIONAMIENTO CORREGIDO PARA QUE NO LOS TAPE EL BANNER */
             .custom-nav {{ position: absolute; top: 125px; left: 15px; z-index: 1005; display: flex; flex-direction: column; gap: 8px; }}
             .btn-fs {{ position: absolute; top: 125px; right: 15px; z-index: 1005; background: #fff; border: 2px solid #2c3e50; padding: 8px 16px; border-radius: 20px; font-weight: bold; cursor: pointer; }}
 
@@ -119,8 +118,23 @@ if xml_file and img_file:
             .btn-zoom-out {{ background: #ffb7c5 !important; color: #333 !important; }}
             .btn-home {{ background: #3498db !important; }}
 
-            .dot {{ width: 14px; height: 14px; border-radius: 50%; border: 2px solid white; cursor: pointer; }}
-            .dot.selected {{ border: 3px solid #fff !important; box-shadow: 0 0 15px #fff; transform: scale(1.6); z-index: 999 !important; }}
+            /* APARIENCIA DE LOS PUNTOS - SOLICITUD DEL USUARIO */
+            .dot {{ 
+                width: 14px; 
+                height: 14px; 
+                border-radius: 50%; 
+                border: none; /* Sin borde inicial */
+                opacity: 0.7; /* Opacidad para disimularse */
+                cursor: pointer; 
+                transition: transform 0.2s, opacity 0.2s;
+            }}
+            .dot.selected {{ 
+                opacity: 1 !important;
+                border: 3px solid #fff !important; 
+                box-shadow: 0 0 15px #fff; 
+                transform: scale(1.6); 
+                z-index: 999 !important; 
+            }}
 
             .report-container {{ position: relative; z-index: 1; background: #f4f7f6; padding-top: 20px; }}
             .summary-card {{ background: white; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); padding: 25px; margin-bottom: 40px; }}
@@ -217,7 +231,6 @@ if xml_file and img_file:
                     bar.innerHTML = "Selecciona un punto para ver su detalle";
                     bar.style.backgroundColor = "#f8f9fa";
                     bar.style.color = "#2c3e50";
-                    bar.style.textShadow = "none";
                 }}
 
                 const filtered = puntos.filter(p => {{
@@ -238,7 +251,6 @@ if xml_file and img_file:
                         bar.style.backgroundColor = p.color_plot;
                         const textColor = getContrastColor(p.color_plot);
                         bar.style.color = textColor;
-                        bar.style.textShadow = textColor === '#ffffff' ? '1px 1px 2px rgba(0,0,0,0.5)' : 'none';
                         bar.innerHTML = "SELECCIONADO: " + p.tipo.toUpperCase() + " | " + p.color_norm.replace(/_/g, ' ').toUpperCase() + " (" + p.tamaño + ")";
                     }});
                     
@@ -313,5 +325,4 @@ if xml_file and img_file:
     </html>
     """
     st.divider()
-    st.download_button(label="📥 DESCARGAR REPORTE CON BOTONES REPARADOS", data=html_report, file_name=f"{titulo_final}.html", mime="text/html")
-
+    st.download_button(label="📥 DESCARGAR REPORTE CON ESTÉTICA DE PUNTOS MEJORADA", data=html_report, file_name=f"{titulo_final}.html", mime="text/html")
