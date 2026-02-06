@@ -39,7 +39,7 @@ def ajustar_color_por_tipo(row):
 # INTERFAZ LATERAL
 # =========================
 st.sidebar.title("💎 Panel de Control")
-nombre_modelo = st.sidebar.text_input("Nombre del Modelo / Pieza", placeholder="Ej: PB-8612 A")
+nombre_modelo = st.sidebar.text_input("Nombre del Modelo", placeholder="Ej: PB-8612 A")
 xml_file = st.sidebar.file_uploader("1. Subir XML", type=["xml"])
 img_file = st.sidebar.file_uploader("2. Subir Imagen", type=["jpg", "png", "jpeg"])
 
@@ -67,10 +67,9 @@ if xml_file and img_file:
     img = Image.open(img_file)
     width, height = img.size
     buffered = BytesIO()
-    img_format = img.format if img.format else "JPEG"
-    img.save(buffered, format=img_format)
+    img.save(buffered, format=img.format if img.format else "JPEG")
     img_base64 = base64.b64encode(buffered.getvalue()).decode()
-    data_uri = f"data:image/{img_format.lower()};base64,{img_base64}"
+    data_uri = f"data:image/jpeg;base64,{img_base64}"
 
     puntos_json = df.to_json(orient='records')
     tipos_unicos = sorted(df["tipo"].unique().tolist())
@@ -85,59 +84,62 @@ if xml_file and img_file:
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
         <script src="https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/openseadragon.min.js"></script>
         <style>
-            body {{ background-color: #f0f2f5; font-family: sans-serif; margin: 0; padding: 10px; overflow-x: hidden; }}
-            .header {{ background: #2c3e50; color: white; padding: 20px; border-radius: 12px; text-align: center; margin-bottom: 15px; }}
-            #viewer-container {{ width: 100%; height: 75vh; background: #333; border-radius: 12px; position: relative; }}
-            .filter-card {{ background: white; padding: 15px; border-radius: 12px; margin-bottom: 15px; }}
+            body {{ background-color: #f8f9fa; font-family: sans-serif; margin: 0; padding: 10px; }}
+            .header {{ background: #2c3e50; color: white; padding: 15px; border-radius: 12px; text-align: center; margin-bottom: 10px; }}
+            #viewer-container {{ width: 100%; height: 70vh; background: #222; border-radius: 12px; position: relative; border: 2px solid #ddd; }}
+            .filter-card {{ background: white; padding: 12px; border-radius: 12px; margin-bottom: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }}
             
             .dot {{ 
                 width: 10px; height: 10px; 
                 border-radius: 50%; border: 1px solid white; 
-                cursor: pointer; pointer-events: auto;
-                box-sizing: border-box; 
+                cursor: pointer; box-sizing: border-box; 
             }}
-            
             .dot.active {{
                 border: 2px solid #fff;
                 box-shadow: 0 0 10px #ffeb3b, 0 0 5px #ffeb3b inset;
                 transform: scale(1.6);
             }}
 
-            /* TOOLTIP GLOBAL FLOTANTE */
+            /* TOOLTIP DE ALTA VISIBILIDAD */
             #floating-info {{
                 position: fixed;
-                background: rgba(0, 0, 0, 0.9);
-                color: white;
-                padding: 10px 15px;
+                background: rgba(0, 0, 0, 0.95);
+                color: #fff;
+                padding: 10px 14px;
                 border-radius: 8px;
                 font-size: 13px;
                 display: none;
-                z-index: 9999;
+                z-index: 10000;
                 pointer-events: none;
-                border: 1px solid #444;
-                box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+                border: 1px solid #ffeb3b;
+                box-shadow: 0 5px 25px rgba(0,0,0,0.7);
                 text-align: center;
-                min-width: 120px;
+                min-width: 140px;
             }}
+            #floating-info b {{ color: #3498db; text-transform: uppercase; }}
         </style>
     </head>
     <body>
         <div id="floating-info"></div>
         
         <div class="header">
-            <h1 style="font-size: 1.4rem; margin: 0;">REPORTE DE COMPONENTES</h1>
-            <div style="color: #3498db; font-weight: bold;">{nombre_modelo.upper() if nombre_modelo else 'SIN NOMBRE'}</div>
+            <h2 style="font-size: 1.2rem; margin: 0;">{nombre_modelo.upper() if nombre_modelo else 'REPORTE DE PIEZA'}</h2>
         </div>
 
         <div class="filter-card">
-            <div id="tipo-filters">
-                <button class="btn btn-primary btn-sm rounded-pill" style="font-size:10px;" onclick="updateFilters('tipo', 'all', this)">TODOS</button>
-                {' '.join([f'<button class="btn btn-outline-primary btn-sm rounded-pill" style="font-size:10px; margin:2px;" onclick="updateFilters(\'tipo\', \'{t}\', this)">{t}</button>' for t in tipos_unicos])}
+            <div class="mb-2">
+                <small class="text-muted d-block mb-1">FILTRAR POR TIPO:</small>
+                <button class="btn btn-primary btn-sm rounded-pill px-3" style="font-size:10px;" onclick="updateFilters('tipo', 'all', this)">TODOS</button>
+                {' '.join([f'<button class="btn btn-outline-primary btn-sm rounded-pill px-3" style="font-size:10px; margin:2px;" onclick="updateFilters(\'tipo\', \'{t}\', this)">{t}</button>' for t in tipos_unicos])}
+            </div>
+            <div>
+                <small class="text-muted d-block mb-1">FILTRAR POR COLOR:</small>
+                <button class="btn btn-success btn-sm rounded-pill px-3" style="font-size:10px;" onclick="updateFilters('color', 'all', this)">TODOS</button>
+                {' '.join([f'<button class="btn btn-outline-success btn-sm rounded-pill px-3" style="font-size:10px; margin:2px;" onclick="updateFilters(\'color\', \'{c}\', this)">{c}</button>' for c in colores_unicos])}
             </div>
         </div>
 
         <div id="viewer-container"></div>
-
         <div class="filter-card mt-3" id="tables-output"></div>
 
         <script>
@@ -145,8 +147,9 @@ if xml_file and img_file:
             const imgW = {width};
             const imgH = {height};
             let filterT = 'all';
+            let filterC = 'all';
             let currentSelectedDot = null;
-            let currentData = null;
+            let currentPointData = null;
             
             const tooltip = document.getElementById('floating-info');
 
@@ -157,14 +160,17 @@ if xml_file and img_file:
                 gestureSettingsTouch: {{ clickToZoom: false, dblClickToZoom: true }},
                 gestureSettingsMouse: {{ clickToZoom: false }},
                 showNavigationControl: false,
-                defaultZoomLevel: 0,
                 maxZoomLevel: 50,
                 detectRetina: false
             }});
 
             function drawPoints() {{
                 viewer.clearOverlays();
-                const filtered = puntos.filter(p => filterT === 'all' || p.tipo === filterT);
+                const filtered = puntos.filter(p => {{
+                    const matchT = (filterT === 'all' || p.tipo === filterT);
+                    const matchC = (filterC === 'all' || p.color_norm === filterC);
+                    return matchT && matchC;
+                }});
 
                 filtered.forEach((p) => {{
                     const elt = document.createElement("div");
@@ -172,15 +178,12 @@ if xml_file and img_file:
                     elt.style.backgroundColor = p.color_plot;
                     
                     const handleAction = (e) => {{
-                        e.preventDefault();
-                        e.stopPropagation();
-
+                        e.preventDefault(); e.stopPropagation();
                         if (currentSelectedDot) currentSelectedDot.classList.remove('active');
                         elt.classList.add('active');
                         currentSelectedDot = elt;
-                        currentData = p;
-
-                        updateTooltipPosition();
+                        currentPointData = p;
+                        showTooltip(p);
                     }};
 
                     elt.addEventListener('click', handleAction);
@@ -195,39 +198,52 @@ if xml_file and img_file:
                 renderTables(filtered);
             }}
 
-            function updateTooltipPosition() {{
-                if (!currentSelectedDot || !currentData) return;
-
-                // Obtener posición real del punto en la pantalla del dispositivo
-                const rect = currentSelectedDot.getBoundingClientRect();
-                
+            function showTooltip(data) {{
                 tooltip.style.display = 'block';
-                tooltip.innerHTML = `<b>${{currentData.tipo.toUpperCase()}}</b><br>${{currentData.color_norm}}<br>${{currentData.tamaño}}`;
+                tooltip.innerHTML = `<b>${{data.tipo}}</b><br>${{data.color_norm}}<br>${{data.tamaño}}`;
+                updateTooltipPos();
+            }}
+
+            function updateTooltipPos() {{
+                if (!currentSelectedDot || !currentPointData) return;
                 
-                // Posicionar arriba del punto
-                const x = rect.left + (rect.width / 2) - (tooltip.offsetWidth / 2);
-                const y = rect.top - tooltip.offsetHeight - 15;
+                // MÉTODO DE PRECISIÓN: Convertir coordenadas de imagen a píxeles de pantalla
+                const viewportPoint = new OpenSeadragon.Point(currentPointData.x / imgW, currentPointData.y / imgW);
+                const pixel = viewer.viewport.pixelFromPoint(viewportPoint, true);
+                const containerRect = document.getElementById('viewer-container').getBoundingClientRect();
+
+                // Sumar la posición del contenedor para obtener coordenadas globales
+                const x = pixel.x + containerRect.left - (tooltip.offsetWidth / 2);
+                const y = pixel.y + containerRect.top - tooltip.offsetHeight - 20;
 
                 tooltip.style.left = x + 'px';
                 tooltip.style.top = y + 'px';
             }}
 
-            // Mantener el cuadro pegado al punto durante el zoom o movimiento
-            viewer.addHandler('animation', updateTooltipPosition);
-            viewer.addHandler('canvas-drag', updateTooltipPosition);
-            viewer.addHandler('canvas-scroll', updateTooltipPosition);
+            // Escuchas de movimiento para que el tooltip siga al punto
+            viewer.addHandler('animation', updateTooltipPos);
+            viewer.addHandler('canvas-drag', updateTooltipPos);
+            viewer.addHandler('canvas-scroll', updateTooltipPos);
 
             viewer.addHandler('canvas-click', () => {{
                 tooltip.style.display = 'none';
                 if (currentSelectedDot) currentSelectedDot.classList.remove('active');
                 currentSelectedDot = null;
+                currentPointData = null;
             }});
 
             function updateFilters(mode, val, btn) {{
                 const parent = btn.parentElement;
-                parent.querySelectorAll('.btn').forEach(b => {{ b.classList.remove('btn-primary'); b.classList.add('btn-outline-primary'); }});
-                btn.classList.add('btn-primary'); btn.classList.remove('btn-outline-primary');
-                filterT = val;
+                const activeClass = mode === 'tipo' ? 'btn-primary' : 'btn-success';
+                const outlineClass = mode === 'tipo' ? 'btn-outline-primary' : 'btn-outline-success';
+                
+                parent.querySelectorAll('.btn').forEach(b => {{ 
+                    b.classList.remove(activeClass); b.classList.add(outlineClass); 
+                }});
+                btn.classList.add(activeClass); btn.classList.remove(outlineClass);
+                
+                if (mode === 'tipo') filterT = val; else filterC = val;
+                
                 tooltip.style.display = 'none';
                 drawPoints();
             }}
@@ -240,16 +256,16 @@ if xml_file and img_file:
                     const key = p.color_norm + '|' + p.tamaño;
                     groups[p.tipo][key] = (groups[p.tipo][key] || 0) + 1;
                 }});
-                let html = '<h5 class="text-primary">Resumen de Materiales</h5>';
+                let html = '<h6 class="text-primary border-bottom pb-2">RESUMEN DE MATERIALES SELECCIONADOS</h6>';
                 for(const t in groups) {{
-                    html += `<div class="mt-2"><strong>${{t.toUpperCase()}}</strong></div>
-                             <table class="table table-sm" style="font-size: 11px;"><tbody>`;
+                    html += `<div class="mt-2 small"><strong>${{t.toUpperCase()}}</strong></div>
+                             <table class="table table-sm table-striped" style="font-size: 10px;"><tbody>`;
                     for(const sk in groups[t]) {{
                         const [c, tam] = sk.split('|');
-                        html += `<tr><td>${{c}}</td><td>${{tam}}</td><td>${{groups[t][sk]}} pz</td></tr>`;
+                        html += `<tr><td>${{c}}</td><td>${{tam}}</td><td class="text-end"><b>${{groups[t][sk]}}</b> pz</td></tr>`;
                     }}
                     html += '</tbody></table>';
-                }}
+                }
                 container.innerHTML = html;
             }}
 
@@ -261,9 +277,10 @@ if xml_file and img_file:
 
     st.divider()
     st.download_button(
-        label="📥 DESCARGAR REPORTE: SOLUCIÓN DEFINITIVA",
+        label="📥 DESCARGAR REPORTE: RECONSTRUIDO CON FILTROS Y TOOLTIP",
         data=html_report,
         file_name=f"Reporte_{nombre_modelo}.html",
         mime="text/html"
     )
+
 
