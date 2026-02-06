@@ -107,21 +107,30 @@ if xml_file and img_file:
             #workspace:fullscreen #viewer-container {{ flex: 1; height: auto; }}
             #viewer-container {{ width: 100%; height: 75vh; background: #000; }}
             
-            /* ESTILO DE BOTONES DE NAVEGACIÓN PERSONALIZADOS */
-            .openseadragon-container .buttons {{ display: flex; gap: 5px; padding: 10px; }}
+            /* CONTENEDOR DE BOTONES REAPARECIDOS */
+            .custom-nav {{
+                position: absolute; top: 10px; left: 10px; z-index: 1005;
+                display: flex; flex-direction: column; gap: 8px;
+            }}
+            .nav-btn {{
+                width: 40px; height: 40px; border-radius: 8px; border: 2px solid white;
+                color: white; font-size: 20px; font-weight: bold; display: flex;
+                align-items: center; justify-content: center; cursor: pointer;
+                box-shadow: 0 2px 5px rgba(0,0,0,0.3); transition: transform 0.1s;
+                text-decoration: none;
+            }}
+            .nav-btn:active {{ transform: scale(0.9); }}
             
-            /* Zoom In - Verde Agua */
-            .nav-btn-in {{ background-color: #2ecc71 !important; color: white !important; border-radius: 8px !important; border: none !important; }}
-            /* Zoom Out - Rosa Claro */
-            .nav-btn-out {{ background-color: #ffb7c5 !important; color: #333 !important; border-radius: 8px !important; border: none !important; }}
-            /* Home - Azul */
-            .nav-btn-home {{ background-color: #3498db !important; color: white !important; border-radius: 8px !important; border: none !important; }}
+            /* Colores solicitados */
+            .btn-zoom-in {{ background-color: #1abc9c !important; }} /* Verde Agua */
+            .btn-zoom-out {{ background-color: #ffb7c5 !important; color: #333 !important; }} /* Rosa Claro */
+            .btn-home {{ background-color: #3498db !important; }} /* Azul */
 
             .dot {{ width: 14px; height: 14px; border-radius: 50%; border: 2px solid white; cursor: pointer; transition: all 0.2s; }}
             .dot.selected {{ border: 3px solid #fff !important; box-shadow: 0 0 12px 4px #fff, 0 0 8px 1px #ffeb3b; transform: scale(1.6); z-index: 999 !important; }}
 
             .btn-fs {{
-                position: absolute; top: 60px; right: 15px; z-index: 1001;
+                position: absolute; top: 10px; right: 15px; z-index: 1001;
                 background: #ffffff; border: 2px solid #2c3e50; padding: 8px 16px;
                 border-radius: 30px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
             }}
@@ -154,6 +163,13 @@ if xml_file and img_file:
 
         <div id="workspace">
             <div id="info-bar">Selecciona un punto para ver su descripción técnica</div>
+            
+            <div class="custom-nav">
+                <div id="btn-in" class="nav-btn btn-zoom-in" title="Acercar">+</div>
+                <div id="btn-out" class="nav-btn btn-zoom-out" title="Alejar">−</div>
+                <div id="btn-home" class="nav-btn btn-home" title="Reiniciar">🏠</div>
+            </div>
+
             <button class="btn-fs" onclick="toggleFullScreen()">+ Pantalla Completa</button>
             <div id="viewer-container"></div>
         </div>
@@ -176,13 +192,7 @@ if xml_file and img_file:
                 id: "viewer-container",
                 prefixUrl: "https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/images/",
                 tileSources: {{ type: 'image', url: '{data_uri}' }},
-                showNavigationControl: true,
-                navigationControlAnchor: OpenSeadragon.ControlAnchor.TOP_LEFT,
-                // Personalización de clases de botones
-                zoomInButton: "zoom-in-btn",
-                zoomOutButton: "zoom-out-btn",
-                homeButton: "home-btn",
-                showFullScreenControl: false, // Quitamos el botón nativo confuso
+                showNavigationControl: false, // Usaremos nuestros propios botones manuales
                 maxZoomLevel: 60,
                 minZoomImageRatio: 1.0,
                 visibilityRatio: 1.0,
@@ -190,18 +200,12 @@ if xml_file and img_file:
                 gestureSettingsTouch: {{ clickToZoom: false, dblClickToZoom: false }}
             }});
 
-            // Aplicar estilos a los botones después de que se crean
-            viewer.addHandler('open', () => {{
-                const btnIn = document.getElementById('zoom-in-btn');
-                const btnOut = document.getElementById('zoom-out-btn');
-                const btnHome = document.getElementById('home-btn');
-                
-                if(btnIn) btnIn.className = "nav-btn-in";
-                if(btnOut) btnOut.className = "nav-btn-out";
-                if(btnHome) btnHome.className = "nav-btn-home";
-                
-                drawPoints();
-            }});
+            // Vincular botones manuales a funciones de OpenSeadragon
+            document.getElementById('btn-in').onclick = () => viewer.viewport.zoomBy(1.2);
+            document.getElementById('btn-out').onclick = () => viewer.viewport.zoomBy(0.8);
+            document.getElementById('btn-home').onclick = () => viewer.viewport.goHome();
+
+            viewer.addHandler('open', drawPoints);
 
             function toggleFullScreen() {{
                 const elem = document.getElementById("workspace");
