@@ -72,8 +72,6 @@ if xml_file and img_file:
     img_base64 = base64.b64encode(buffered.getvalue()).decode()
     data_uri = f"data:image/{img_format.lower()};base64,{img_base64}"
 
-    st.subheader(f"Modelo: {nombre_modelo if nombre_modelo else 'Sin nombre'}")
-    
     puntos_json = df.to_json(orient='records')
     tipos_unicos = sorted(df["tipo"].unique().tolist())
     colores_unicos = sorted(df["color_norm"].unique().tolist())
@@ -83,28 +81,25 @@ if xml_file and img_file:
     <html>
     <head>
         <title>Reporte Pro: {nombre_modelo}</title>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=no">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
         <script src="https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/openseadragon.min.js"></script>
         <style>
             body {{ background-color: #f0f2f5; font-family: sans-serif; margin: 0; padding: 10px; }}
             .header {{ background: #2c3e50; color: white; padding: 20px; border-radius: 12px; text-align: center; margin-bottom: 15px; }}
-            #viewer-container {{ width: 100%; height: 60vh; background: #333; border-radius: 12px; position: relative; }}
+            #viewer-container {{ width: 100%; height: 60vh; background: #333; border-radius: 12px; position: relative; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }}
             .filter-card {{ background: white; padding: 15px; border-radius: 12px; margin-bottom: 15px; }}
             .btn-filter {{ border-radius: 20px; font-size: 11px; margin: 2px; text-transform: uppercase; }}
-            
             .dot {{ 
                 position: absolute; width: 12px; height: 12px; 
-                border-radius: 50%; border: 1.5px solid rgba(255,255,255,0.9); 
+                border-radius: 50%; border: 1.5px solid white; 
                 transform: translate(-50%, -50%); 
-                cursor: pointer; pointer-events: auto;
-                box-shadow: 0 0 4px rgba(0,0,0,0.5);
+                cursor: pointer; pointer-events: auto; z-index: 10;
             }}
-            
             .osd-tooltip {{
                 position: absolute; background: rgba(0,0,0,0.9); color: white;
                 padding: 6px 12px; border-radius: 6px; font-size: 12px;
-                pointer-events: none; display: none; z-index: 9999;
+                pointer-events: none; display: none; z-index: 1000;
                 white-space: nowrap; border: 1px solid #444;
             }}
         </style>
@@ -142,21 +137,19 @@ if xml_file and img_file:
             let filterC = 'all';
             const tooltip = document.getElementById('tooltip');
 
-            // LA CLAVE: Definir las dimensiones exactas de la imagen
             const viewer = OpenSeadragon({{
                 id: "viewer-container",
                 prefixUrl: "https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/images/",
                 tileSources: {{
                     type: 'image',
-                    url: '{data_uri}',
-                    buildPyramid: false
+                    url: '{data_uri}'
                 }},
                 gestureSettingsTouch: {{ pinchRotate: false }},
                 showNavigationControl: false,
-                constrainDuringPan: true,
-                defaultZoomLevel: 1,
-                // Obligamos a usar el sistema de coordenadas de la imagen
-                degrees: 0
+                defaultZoomLevel: 0,
+                minZoomLevel: 0,
+                visibilityRatio: 1,
+                constrainDuringPan: true
             }});
 
             function drawPoints() {{
@@ -182,18 +175,15 @@ if xml_file and img_file:
                     }};
                     
                     elt.onmouseover = showInfo;
-                    elt.ontouchstart = (e) => {{ showInfo(e); }};
+                    elt.ontouchstart = (e) => showInfo(e);
                     elt.onmouseout = () => tooltip.style.display = 'none';
 
-                    // CÁLCULO DE PRECISIÓN MILIMÉTRICA:
-                    // Convertimos coordenadas de píxeles de imagen a coordenadas de viewport de OpenSeadragon
-                    const viewportPoint = viewer.viewport.imageToViewportCorners(
-                        new OpenSeadragon.Rect(p.x, p.y, 0, 0)
-                    ).getTopLeft();
-
+                    // CÁLCULO DIRECTO: Coordenada Normalizada
+                    // La coordenada X es (p.x / ancho_total).
+                    // La coordenada Y debe ser proporcional al ancho para que OpenSeadragon no se pierda.
                     viewer.addOverlay({{
                         element: elt,
-                        location: viewportPoint,
+                        location: new OpenSeadragon.Point(p.x / imgW, p.y / imgW),
                         placement: OpenSeadragon.Placement.CENTER
                     }});
                 }});
@@ -234,7 +224,6 @@ if xml_file and img_file:
                 document.getElementById('total-text').innerText = 'Piezas: ' + data.length;
             }}
 
-            // Importante: esperar a que la imagen cargue para conocer sus dimensiones reales
             viewer.addHandler('open', drawPoints);
         </script>
     </body>
@@ -243,11 +232,9 @@ if xml_file and img_file:
 
     st.divider()
     st.download_button(
-        label="📥 DESCARGAR REPORTE PRECISIÓN TOTAL",
+        label="📥 DESCARGAR REPORTE (REPARADO)",
         data=html_report,
         file_name=f"Reporte_{nombre_modelo}.html",
         mime="text/html"
     )
-
-
 
