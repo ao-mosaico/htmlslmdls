@@ -7,11 +7,12 @@ import json
 from io import BytesIO
 
 # =========================================================
-# CONFIGURACIÓN Y CATÁLOGO (Solo se añadieron 3 líneas aquí)
+# CONFIGURACIÓN Y CATÁLOGO AMPLIADO
 # =========================================================
 st.set_page_config(page_title="Gestor de Mosaicos Pro", layout="wide")
 
 COLOR_CATALOG = {
+    # Cristales y generales
     "plata": "silver", "dorado": "gold", "rosa": "pink",
     "ab_aguamarina": "aquamarine", "ab_amatista": "mediumpurple",
     "ab_cristal": "lightcyan", "ab_peridot": "lightgreen",
@@ -23,10 +24,15 @@ COLOR_CATALOG = {
     "opal_green": "lightgreen", "peridot": "limegreen",
     "rose": "pink", "siam": "crimson", "topaz": "orange",
     "violet": "violet", "zafiro": "royalblue", "sin_color": "gray",
-    # NUEVOS ATRIBUTOS DICROICOS SOLICITADOS
-    "gmb_morado": "#9400D3",      # Morado intenso
-    "rsb_azul": "#0000FF",         # Azul sólido
-    "rsb/gbm_subl": "#87CEFA"     # Azul claro (Sublime)
+    # Dicroicos
+    "gmb_morado": "#9400D3", "rsb_azul": "#0000FF", "rsb/gbm_subl": "#87CEFA",
+    # NUEVOS COLORES: MICROPERLAS
+    "amarillo": "#FFFF00", "azul_rey": "#0000CD", "rojo": "#FF0000",
+    "turqueza": "#40E0D0", "turqueza_metalico": "#00CED1", "teal": "#008080",
+    "mauva": "#E0B0FF", "lilac": "#C8A2C8", "azul_purpura": "#8A2BE2",
+    "orquida": "#DA70D6", "purpura": "#800080", "salmon": "#FA8072",
+    "gris": "#808080", "azul_agua": "#00FFFF", "verde_jade": "#00A86B",
+    "morado": "#7A288A", "otro": "#D3D3D3"
 }
 
 def normalizar_color(c):
@@ -37,17 +43,17 @@ def ajustar_color_por_tipo(row):
     tipo = str(row["tipo"]).lower()
     color = row["color_norm"]
     
-    # Lógica específica para Dicroicos: Respeta los nuevos nombres
+    # Lógica para Microperlas y Dicroicos
+    if tipo == "microperla":
+        return color if color in COLOR_CATALOG else "otro"
     if tipo == "dicroico":
-        if color in ["gmb_morado", "rsb_azul", "rsb/gbm_subl"]:
-            return color
-        return "gmb_morado" # Fallback por seguridad
-        
+        if color in ["gmb_morado", "rsb_azul", "rsb/gbm_subl"]: return color
+        return "gmb_morado"
     if tipo == "balin" and color not in ["plata", "dorado"]: return "plata"
     return color
 
 # =========================================================
-# INTERFAZ LATERAL (Sin cambios)
+# PROCESAMIENTO DE DATOS
 # =========================================================
 st.sidebar.title("💎 Panel de Control")
 nombre_modelo = st.sidebar.text_input("Nombre del Modelo", placeholder="Ej: PB-8612 A")
@@ -68,7 +74,7 @@ if xml_file and img_file:
                 rows.append({
                     "x": x, "y": y, "tipo": tipo, 
                     "color_norm": normalizar_color(attrs.get("color", "")), 
-                    "tamaño": attrs.get("tamaño", ""),
+                    "tamaño": attrs.get("tamaño", "pp01" if tipo == "microperla" else ""),
                     "color_plot": COLOR_CATALOG.get(normalizar_color(attrs.get("color", "")), "gray")
                 })
     
@@ -86,11 +92,10 @@ if xml_file and img_file:
     puntos_json = df.to_json(orient='records')
     tipos_unicos = sorted(df["tipo"].unique().tolist())
     colores_unicos = sorted(df["color_norm"].unique().tolist())
-
     titulo_final = f"Componentes {nombre_modelo}" if nombre_modelo else "Componentes"
 
     # =========================================================
-    # HTML/JS (Manteniendo la estructura de botones de colores y 65px)
+    # GENERACIÓN DEL REPORTE HTML
     # =========================================================
     html_report = f"""
     <!DOCTYPE html>
@@ -137,8 +142,8 @@ if xml_file and img_file:
                 box-shadow: 0 4px 6px rgba(0,0,0,0.2);
             }}
 
-            .dot {{ width: 14px; height: 14px; border-radius: 50%; border: 2px solid white; cursor: pointer; transition: all 0.2s; }}
-            .dot.selected {{ border: 3px solid #fff !important; box-shadow: 0 0 12px 4px #fff, 0 0 8px 1px #ffeb3b; transform: scale(1.6); z-index: 999 !important; }}
+            .dot {{ width: 12px; height: 12px; border-radius: 50%; border: 1.5px solid white; cursor: pointer; transition: all 0.2s; }}
+            .dot.selected {{ border: 3px solid #fff !important; box-shadow: 0 0 12px 4px #fff; transform: scale(1.8); z-index: 999 !important; }}
 
             .p-container {{ padding: 15px; }}
             .filter-card {{ background: white; padding: 15px; border-radius: 12px; margin-bottom: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }}
@@ -147,25 +152,23 @@ if xml_file and img_file:
         </style>
     </head>
     <body>
-        <div class="header">
-            <h2 style="font-size: 1.4rem; margin: 0;">{titulo_final}</h2>
-        </div>
+        <div class="header"><h2>{titulo_final}</h2></div>
         <div class="p-container">
             <div class="filter-card">
                 <div class="mb-2">
                     <small class="text-muted fw-bold">TIPO DE PIEZA:</small>
                     <button class="btn btn-primary btn-sm rounded-pill px-3" onclick="updateFilters('tipo', 'all', this)">TODOS</button>
-                    {' '.join([f'<button class="btn btn-outline-primary btn-sm rounded-pill px-3 mx-1" onclick="updateFilters(\'tipo\', \'{t}\', this)">{t}</button>' for t in tipos_unicos])}
+                    {' '.join([f'<button class="btn btn-outline-primary btn-sm rounded-pill px-3 mx-1" onclick="updateFilters(\'tipo\', \'{t}\', this)">{t.upper()}</button>' for t in tipos_unicos])}
                 </div>
                 <div>
                     <small class="text-muted fw-bold">COLOR:</small>
                     <button class="btn btn-success btn-sm rounded-pill px-3" onclick="updateFilters('color', 'all', this)">TODOS</button>
-                    {' '.join([f'<button class="btn btn-outline-success btn-sm rounded-pill px-3 mx-1" onclick="updateFilters(\'color\', \'{c}\', this)">{c}</button>' for c in colores_unicos])}
+                    {' '.join([f'<button class="btn btn-outline-success btn-sm rounded-pill px-3 mx-1" onclick="updateFilters(\'color\', \'{c}\', this)">{c.replace("_", " ").upper()}</button>' for c in colores_unicos])}
                 </div>
             </div>
         </div>
         <div id="workspace">
-            <div id="info-bar">Selecciona un punto para ver su descripción técnica</div>
+            <div id="info-bar">Selecciona un elemento en la imagen para ver el detalle</div>
             <div class="custom-nav">
                 <div id="btn-in" class="nav-btn btn-zoom-in">+</div>
                 <div id="btn-out" class="nav-btn btn-zoom-out">−</div>
@@ -174,9 +177,7 @@ if xml_file and img_file:
             <button class="btn-fs" onclick="toggleFullScreen()">📺 Pantalla Completa</button>
             <div id="viewer-container"></div>
         </div>
-        <div class="p-container">
-            <div class="filter-card" id="tables-output"></div>
-        </div>
+        <div class="p-container"><div class="filter-card" id="tables-output"></div></div>
 
         <script>
             const puntos = {puntos_json};
@@ -185,11 +186,11 @@ if xml_file and img_file:
                 id: "viewer-container",
                 prefixUrl: "https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/images/",
                 tileSources: {{ type: 'image', url: '{data_uri}' }},
-                showNavigationControl: false, maxZoomLevel: 60, minZoomImageRatio: 1.0, visibilityRatio: 1.0,
-                constrainDuringPan: true, gestureSettingsTouch: {{ clickToZoom: false, dblClickToZoom: false }}
+                showNavigationControl: false, maxZoomLevel: 80, minZoomImageRatio: 1.0, visibilityRatio: 1.0,
+                constrainDuringPan: true
             }});
 
-            document.getElementById('btn-in').onclick = () => viewer.viewport.zoomBy(1.3);
+            document.getElementById('btn-in').onclick = () => viewer.viewport.zoomBy(1.4);
             document.getElementById('btn-out').onclick = () => viewer.viewport.zoomBy(0.7);
             document.getElementById('btn-home').onclick = () => viewer.viewport.goHome();
 
@@ -215,7 +216,7 @@ if xml_file and img_file:
                     elt.onclick = () => {{
                         if(lastSelectedElt) lastSelectedElt.classList.remove('selected');
                         elt.classList.add('selected'); lastSelectedElt = elt;
-                        document.getElementById('info-bar').innerHTML = "PUNTO SELECCIONADO: " + p.tipo.toUpperCase() + " | " + p.color_norm.replace(/_/g, ' ') + " | " + p.tamaño;
+                        document.getElementById('info-bar').innerHTML = "SELECCIONADO: " + p.tipo.toUpperCase() + " | " + p.color_norm.replace(/_/g, ' ').toUpperCase() + " | " + p.tamaño;
                     }};
                     viewer.addOverlay({{ element: elt, location: new OpenSeadragon.Point(p.x/imgW, p.y/imgW), placement: 'CENTER' }});
                 }});
@@ -240,14 +241,14 @@ if xml_file and img_file:
                 data.forEach(p => {{
                     totalGral++;
                     if(!groups[p.tipo]) groups[p.tipo] = {{}};
-                    const key = p.color_norm.replace(/_/g, ' ') + " (" + p.tamaño + ")";
+                    const key = p.color_norm.replace(/_/g, ' ').toUpperCase() + " (" + p.tamaño + ")";
                     groups[p.tipo][key] = (groups[p.tipo][key] || 0) + 1;
                 }});
-                let html = '<h5 class="fw-bold">RESUMEN - {nombre_modelo}</h5>';
+                let html = '<h5 class="fw-bold">RESUMEN DE COMPONENTES - {nombre_modelo}</h5>';
                 for(let t in groups) {{
                     html += '<div class="category-header"><span>' + t.toUpperCase() + '</span></div>';
                     html += '<table class="table table-sm"><tbody>';
-                    for(let k in groups[t]) html += '<tr><td>' + k + '</td><td>' + groups[t][k] + ' pz</td></tr>';
+                    for(let k in groups[t]) html += '<tr><td>' + k + '</td><td class="text-end"><b>' + groups[t][k] + '</b> pz</td></tr>';
                     html += '</tbody></table>';
                 }}
                 html += '<div class="total-banner">TOTAL: ' + totalGral + ' PIEZAS</div>';
@@ -258,5 +259,5 @@ if xml_file and img_file:
     </html>
     """
     st.divider()
-    st.download_button(label=f"📥 DESCARGAR REPORTE", data=html_report, file_name=f"{titulo_final}.html", mime="text/html")
+    st.download_button(label=f"📥 DESCARGAR REPORTE TÉCNICO", data=html_report, file_name=f"{titulo_final}.html", mime="text/html")
 
