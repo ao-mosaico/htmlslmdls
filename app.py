@@ -90,7 +90,6 @@ if xml_file and img_file:
             
             .filter-card {{ background: white; padding: 15px; border-radius: 10px; margin-bottom: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }}
             
-            /* BANNER FIJO AL HACER SCROLL */
             #info-bar {{
                 position: -webkit-sticky;
                 position: sticky;
@@ -106,28 +105,43 @@ if xml_file and img_file:
                 box-shadow: 0 2px 10px rgba(0,0,0,0.1);
             }}
 
-            /* CONTENEDOR DE TRABAJO (Para Pantalla Completa) */
-            #workspace {{ background: #1a1a1a; position: relative; display: flex; flex-direction: column; }}
-            #viewer-container {{ width: 100%; height: 75vh; background: #000; }}
+            #workspace {{ 
+                background: #1a1a1a; 
+                position: relative; 
+                display: flex; 
+                flex-direction: column; 
+            }}
+            
+            /* Ajuste para que el visor crezca en Pantalla Completa */
+            #workspace:fullscreen {{
+                width: 100vw;
+                height: 100vh;
+            }}
+            #workspace:fullscreen #viewer-container {{
+                flex: 1;
+                height: auto;
+            }}
+
+            #viewer-container {{ width: 100%; height: 70vh; background: #000; }}
             
             .dot {{ 
                 width: 14px; height: 14px; 
                 border-radius: 50%; border: 2px solid white; 
-                cursor: pointer;
+                cursor: pointer; transition: all 0.2s;
             }}
 
-            /* REDUCIDO EL CRECIMIENTO (1.8x) */
+            /* CRECIMIENTO DISCRETO */
             .dot.selected {{
                 border: 3px solid #fff !important;
-                box-shadow: 0 0 15px 5px #fff, 0 0 10px 2px #ffeb3b;
-                transform: scale(1.8);
+                box-shadow: 0 0 12px 4px #fff, 0 0 8px 1px #ffeb3b;
+                transform: scale(1.6);
                 z-index: 999 !important;
             }}
 
             .btn-fs {{
-                position: absolute; top: 10px; right: 10px; z-index: 1001;
-                background: rgba(255,255,255,0.8); border: none; padding: 8px 12px;
-                border-radius: 5px; font-weight: bold; cursor: pointer;
+                position: absolute; top: 60px; right: 10px; z-index: 1001;
+                background: rgba(255,255,255,0.9); border: 1px solid #ccc; padding: 8px 12px;
+                border-radius: 5px; font-weight: bold; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.2);
             }}
 
             .category-header {{
@@ -186,7 +200,6 @@ if xml_file and img_file:
                 id: "viewer-container",
                 prefixUrl: "https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/images/",
                 tileSources: {{ type: 'image', url: '{data_uri}' }},
-                // BOTONES DE ZOOM HABILITADOS
                 showNavigationControl: true,
                 navigationControlAnchor: OpenSeadragon.ControlAnchor.TOP_LEFT,
                 maxZoomLevel: 60,
@@ -200,9 +213,7 @@ if xml_file and img_file:
             function toggleFullScreen() {{
                 const elem = document.getElementById("workspace");
                 if (!document.fullscreenElement) {{
-                    elem.requestFullscreen().catch(err => {{
-                        alert(`Error al intentar modo pantalla completa: ${{err.message}}`);
-                    }});
+                    elem.requestFullscreen();
                 }} else {{
                     document.exitFullscreen();
                 }}
@@ -292,7 +303,7 @@ if xml_file and img_file:
 
     st.divider()
     st.download_button(
-        label="📥 DESCARGAR REPORTE CON PANTALLA COMPLETA Y ZOOM",
+        label="📥 DESCARGAR REPORTE PROFESIONAL",
         data=html_report,
         file_name=f"Reporte_{nombre_modelo}.html",
         mime="text/html"
