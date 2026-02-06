@@ -39,7 +39,7 @@ def ajustar_color_por_tipo(row):
 # INTERFAZ LATERAL
 # =========================
 st.sidebar.title("💎 Panel de Control")
-nombre_modelo = st.sidebar.text_input("Nombre del Modelo / Pieza", placeholder="Ej: Collar Primavera")
+nombre_modelo = st.sidebar.text_input("Nombre del Modelo / Pieza", placeholder="Ej: PB-8612 A")
 xml_file = st.sidebar.file_uploader("1. Subir XML", type=["xml"])
 img_file = st.sidebar.file_uploader("2. Subir Imagen", type=["jpg", "png", "jpeg"])
 
@@ -87,14 +87,15 @@ if xml_file and img_file:
         <style>
             body {{ background-color: #f0f2f5; font-family: sans-serif; margin: 0; padding: 10px; }}
             .header {{ background: #2c3e50; color: white; padding: 20px; border-radius: 12px; text-align: center; margin-bottom: 15px; }}
-            #viewer-container {{ width: 100%; height: 60vh; background: #333; border-radius: 12px; position: relative; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }}
+            #viewer-container {{ width: 100%; height: 60vh; background: #333; border-radius: 12px; position: relative; }}
             .filter-card {{ background: white; padding: 15px; border-radius: 12px; margin-bottom: 15px; }}
             .btn-filter {{ border-radius: 20px; font-size: 11px; margin: 2px; text-transform: uppercase; }}
             .dot {{ 
-                position: absolute; width: 12px; height: 12px; 
+                position: absolute; width: 14px; height: 14px; 
                 border-radius: 50%; border: 1.5px solid white; 
                 transform: translate(-50%, -50%); 
                 cursor: pointer; pointer-events: auto; z-index: 10;
+                box-shadow: 0 0 3px rgba(0,0,0,0.5);
             }}
             .osd-tooltip {{
                 position: absolute; background: rgba(0,0,0,0.9); color: white;
@@ -146,6 +147,7 @@ if xml_file and img_file:
                 }},
                 gestureSettingsTouch: {{ pinchRotate: false }},
                 showNavigationControl: false,
+                // CONFIGURACIÓN DE ESCALA REAL
                 defaultZoomLevel: 0,
                 minZoomLevel: 0,
                 visibilityRatio: 1,
@@ -178,9 +180,10 @@ if xml_file and img_file:
                     elt.ontouchstart = (e) => showInfo(e);
                     elt.onmouseout = () => tooltip.style.display = 'none';
 
-                    // CÁLCULO DIRECTO: Coordenada Normalizada
-                    // La coordenada X es (p.x / ancho_total).
-                    // La coordenada Y debe ser proporcional al ancho para que OpenSeadragon no se pierda.
+                    // LA CORRECCIÓN MATEMÁTICA:
+                    // OpenSeadragon usa una escala donde el ancho de la imagen es 1.0.
+                    // Por lo tanto, la coordenada X es p.x / imgW.
+                    // Y la coordenada Y TAMBIÉN debe dividirse por imgW para mantener la proporción.
                     viewer.addOverlay({{
                         element: elt,
                         location: new OpenSeadragon.Point(p.x / imgW, p.y / imgW),
@@ -232,9 +235,8 @@ if xml_file and img_file:
 
     st.divider()
     st.download_button(
-        label="📥 DESCARGAR REPORTE (REPARADO)",
+        label="📥 DESCARGAR REPORTE: PRECISIÓN PB-8612 A",
         data=html_report,
         file_name=f"Reporte_{nombre_modelo}.html",
         mime="text/html"
     )
-
