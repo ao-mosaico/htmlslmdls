@@ -89,15 +89,16 @@ if xml_file and img_file:
         <style>
             body {{ background-color: #f0f2f5; font-family: sans-serif; margin: 0; padding: 10px; }}
             .header {{ background: #2c3e50; color: white; padding: 20px; border-radius: 12px; text-align: center; margin-bottom: 15px; }}
-            #viewer-container {{ width: 100%; height: 60vh; background: #333; border-radius: 12px; position: relative; overflow: hidden; }}
+            #viewer-container {{ width: 100%; height: 60vh; background: #333; border-radius: 12px; position: relative; }}
             .filter-card {{ background: white; padding: 15px; border-radius: 12px; margin-bottom: 15px; }}
             .btn-filter {{ border-radius: 20px; font-size: 11px; margin: 2px; text-transform: uppercase; }}
             
             .dot {{ 
-                position: absolute; width: 10px; height: 10px; 
-                border-radius: 50%; border: 1px solid rgba(255,255,255,0.8); 
+                position: absolute; width: 12px; height: 12px; 
+                border-radius: 50%; border: 1.5px solid rgba(255,255,255,0.9); 
                 transform: translate(-50%, -50%); 
                 cursor: pointer; pointer-events: auto;
+                box-shadow: 0 0 4px rgba(0,0,0,0.5);
             }}
             
             .osd-tooltip {{
@@ -141,23 +142,21 @@ if xml_file and img_file:
             let filterC = 'all';
             const tooltip = document.getElementById('tooltip');
 
+            // LA CLAVE: Definir las dimensiones exactas de la imagen
             const viewer = OpenSeadragon({{
                 id: "viewer-container",
                 prefixUrl: "https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/images/",
-                tileSources: {{ type: 'image', url: '{data_uri}' }},
-                // BLOQUEO DE ROTACIÓN Y MEJORA DE GESTOS
-                gestureSettingsTouch: {{ 
-                    pinchRotate: false, 
-                    pinchZoom: true,
-                    scrollToZoom: true,
-                    flickEnabled: true
+                tileSources: {{
+                    type: 'image',
+                    url: '{data_uri}',
+                    buildPyramid: false
                 }},
+                gestureSettingsTouch: {{ pinchRotate: false }},
                 showNavigationControl: false,
-                defaultZoomLevel: 0,
-                minZoomLevel: 0,
-                visibilityRatio: 1,
                 constrainDuringPan: true,
-                imageSmoothingEnabled: true
+                defaultZoomLevel: 1,
+                // Obligamos a usar el sistema de coordenadas de la imagen
+                degrees: 0
             }});
 
             function drawPoints() {{
@@ -176,23 +175,25 @@ if xml_file and img_file:
                     const showInfo = (e) => {{
                         tooltip.style.display = 'block';
                         tooltip.innerHTML = `<b>${{p.tipo.toUpperCase()}}</b><br>${{p.color_norm}} | ${{p.tamaño}}`;
-                        const xPos = (e.clientX || e.touches[0].clientX);
-                        const yPos = (e.clientY || e.touches[0].clientY);
+                        const xPos = (e.clientX || (e.touches && e.touches[0].clientX));
+                        const yPos = (e.clientY || (e.touches && e.touches[0].clientY));
                         tooltip.style.left = (xPos + 15) + 'px';
                         tooltip.style.top = (yPos - 40) + 'px';
                     }};
                     
                     elt.onmouseover = showInfo;
-                    elt.ontouchstart = (e) => {{ e.preventDefault(); showInfo(e); }};
+                    elt.ontouchstart = (e) => {{ showInfo(e); }};
                     elt.onmouseout = () => tooltip.style.display = 'none';
-                    elt.ontouchend = () => tooltip.style.display = 'none';
 
-                    // CÁLCULO DE PRECISIÓN: normalizamos X respecto al ancho de la imagen
-                    // OpenSeadragon usa la coordenada X normalizada (0 a 1)
-                    // y la Y proporcional al aspecto de la imagen.
+                    // CÁLCULO DE PRECISIÓN MILIMÉTRICA:
+                    // Convertimos coordenadas de píxeles de imagen a coordenadas de viewport de OpenSeadragon
+                    const viewportPoint = viewer.viewport.imageToViewportCorners(
+                        new OpenSeadragon.Rect(p.x, p.y, 0, 0)
+                    ).getTopLeft();
+
                     viewer.addOverlay({{
                         element: elt,
-                        location: new OpenSeadragon.Point(p.x / imgW, p.y / imgW),
+                        location: viewportPoint,
                         placement: OpenSeadragon.Placement.CENTER
                     }});
                 }});
@@ -233,6 +234,7 @@ if xml_file and img_file:
                 document.getElementById('total-text').innerText = 'Piezas: ' + data.length;
             }}
 
+            // Importante: esperar a que la imagen cargue para conocer sus dimensiones reales
             viewer.addHandler('open', drawPoints);
         </script>
     </body>
@@ -241,7 +243,7 @@ if xml_file and img_file:
 
     st.divider()
     st.download_button(
-        label="📥 DESCARGAR REPORTE PRECISIÓN FINAL",
+        label="📥 DESCARGAR REPORTE PRECISIÓN TOTAL",
         data=html_report,
         file_name=f"Reporte_{nombre_modelo}.html",
         mime="text/html"
