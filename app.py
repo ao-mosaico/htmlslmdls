@@ -6,9 +6,9 @@ import base64
 import json
 from io import BytesIO
 
-# =========================================================
-# CONFIGURACIÓN Y CATÁLOGO (ESTABLE)
-# =========================================================
+# =========================
+# CONFIGURACIÓN Y CATÁLOGO
+# =========================
 st.set_page_config(page_title="Gestor de Mosaicos Pro", layout="wide")
 
 COLOR_CATALOG = {
@@ -46,9 +46,9 @@ def ajustar_color_por_tipo(row):
     if tipo == "balin" and color not in ["plata", "dorado"]: return "plata"
     return color
 
-# =========================================================
-# PROCESAMIENTO
-# =========================================================
+# =========================
+# INTERFAZ Y PROCESAMIENTO
+# =========================
 st.sidebar.title("💎 Panel de Control")
 nombre_modelo = st.sidebar.text_input("Nombre del Modelo", placeholder="Ej: PB-8612 A")
 xml_file = st.sidebar.file_uploader("1. Subir XML", type=["xml"])
@@ -88,15 +88,15 @@ if xml_file and img_file:
     colores_unicos = sorted(df["color_norm"].unique().tolist())
     titulo_final = f"Componentes {nombre_modelo}" if nombre_modelo else "Componentes"
 
-    # =========================================================
-    # HTML/JS (CORREGIDO: Desactivado click-to-zoom)
-    # =========================================================
+    # =========================
+    # REPORTE HTML (LLAVES DUPLICADAS {{ }} PARA EVITAR SYNTAX ERROR)
+    # =========================
     html_report = f"""
     <!DOCTYPE html>
     <html>
     <head>
         <title>{titulo_final}</title>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
         <script src="https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/openseadragon.min.js"></script>
         <style>
@@ -109,8 +109,6 @@ if xml_file and img_file:
                 box-shadow: 0 2px 8px rgba(0,0,0,0.1); min-height: 50px;
             }}
             #workspace {{ background: #1a1a1a; position: relative; display: flex; flex-direction: column; }}
-            #workspace:fullscreen {{ width: 100vw; height: 100vh; }}
-            #workspace:fullscreen #viewer-container {{ flex: 1; height: auto; }}
             #viewer-container {{ width: 100%; height: 75vh; background: #000; }}
             .custom-nav {{
                 position: absolute; top: 65px; left: 15px; z-index: 1005;
@@ -128,10 +126,9 @@ if xml_file and img_file:
             .btn-fs {{
                 position: absolute; top: 65px; right: 15px; z-index: 1005;
                 background: #ffffff; border: 2px solid #2c3e50; padding: 10px 20px;
-                border-radius: 30px; font-weight: bold; cursor: pointer; 
-                box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+                border-radius: 30px; font-weight: bold; cursor: pointer;
             }}
-            .dot {{ width: 14px; height: 14px; border-radius: 50%; border: 2px solid white; cursor: pointer; transition: all 0.2s; }}
+            .dot {{ width: 14px; height: 14px; border-radius: 50%; border: 2px solid white; cursor: pointer; }}
             .dot.selected {{ border: 3px solid #fff !important; box-shadow: 0 0 12px 4px #fff; transform: scale(1.6); z-index: 999 !important; }}
             .p-container {{ padding: 15px; }}
             .filter-card {{ background: white; padding: 15px; border-radius: 12px; margin-bottom: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }}
@@ -144,7 +141,7 @@ if xml_file and img_file:
         <div class="p-container">
             <div class="filter-card">
                 <div class="mb-2">
-                    <small class="text-muted fw-bold">TIPO DE PIEZA:</small>
+                    <small class="text-muted fw-bold">TIPO:</small>
                     <button class="btn btn-primary btn-sm rounded-pill px-3" onclick="updateFilters('tipo', 'all', this)">TODOS</button>
                     {' '.join([f'<button class="btn btn-outline-primary btn-sm rounded-pill px-3 mx-1" onclick="updateFilters(\'tipo\', \'{t}\', this)">{t.upper()}</button>' for t in tipos_unicos])}
                 </div>
@@ -156,16 +153,17 @@ if xml_file and img_file:
             </div>
         </div>
         <div id="workspace">
-            <div id="info-bar">Selecciona un elemento en la imagen para ver el detalle</div>
+            <div id="info-bar">Selecciona un elemento en la imagen</div>
             <div class="custom-nav">
                 <div id="btn-in" class="nav-btn btn-zoom-in">+</div>
                 <div id="btn-out" class="nav-btn btn-zoom-out">−</div>
                 <div id="btn-home" class="nav-btn btn-home">🏠</div>
             </div>
-            <button class="btn-fs" onclick="toggleFullScreen()">📺 Pantalla Completa</button>
+            <button class="btn-fs" onclick="toggleFS()">📺 Pantalla Completa</button>
             <div id="viewer-container"></div>
         </div>
-        <div class="p-container"><div class="filter-card" id="tables-output"></div></div>
+        <div class="p-container"><div id="tables-output"></div></div>
+
         <script>
             const puntos = {puntos_json};
             const imgW = {width};
@@ -173,43 +171,79 @@ if xml_file and img_file:
                 id: "viewer-container",
                 prefixUrl: "https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/images/",
                 tileSources: {{ type: 'image', url: '{data_uri}' }},
-                showNavigationControl: false, maxZoomLevel: 80, minZoomImageRatio: 1.0, visibilityRatio: 1.0,
-                constrainDuringPan: true,
+                showNavigationControl: false, maxZoomLevel: 80,
                 gestureSettingsTouch: {{ clickToZoom: false, dblClickToZoom: false }},
                 gestureSettingsMouse: {{ clickToZoom: false, dblClickToZoom: false }}
             }});
+
             document.getElementById('btn-in').onclick = () => viewer.viewport.zoomBy(1.4);
             document.getElementById('btn-out').onclick = () => viewer.viewport.zoomBy(0.7);
             document.getElementById('btn-home').onclick = () => viewer.viewport.goHome();
-            viewer.addHandler('open', drawPoints);
-            function toggleFullScreen() {{
-                const elem = document.getElementById("workspace");
-                if (!document.fullscreenElement) elem.requestFullscreen();
+
+            function toggleFS() {{
+                const el = document.getElementById("workspace");
+                if (!document.fullscreenElement) el.requestFullscreen();
                 else document.exitFullscreen();
             }}
+
+            let filterT = 'all', filterC = 'all', lastSelected = null;
+
+            viewer.addHandler('open', drawPoints);
+
             function drawPoints() {{
                 viewer.clearOverlays();
                 const filtered = puntos.filter(p => {{
-                    const matchT = (filterT === 'all' || p.tipo === filterT);
-                    const matchC = (filterC === 'all' || p.color_norm === filterC);
-                    return matchT && matchC;
+                    return (filterT === 'all' || p.tipo === filterT) && (filterC === 'all' || p.color_norm === filterC);
                 }});
                 filtered.forEach(p => {{
                     const elt = document.createElement("div");
                     elt.className = "dot";
                     elt.style.backgroundColor = p.color_plot;
-                    
-                    // Evento corregido para prevenir propagación al zoom
-                    const selectAction = (e) => {{
-                        if(e) {{ e.stopPropagation(); e.preventDefault(); }}
-                        if(lastSelectedElt) lastSelectedElt.classList.remove('selected');
-                        elt.classList.add('selected'); lastSelectedElt = elt;
+                    elt.addEventListener('pointerdown', (e) => {{
+                        e.stopPropagation();
+                        if(lastSelected) lastSelected.classList.remove('selected');
+                        elt.classList.add('selected'); lastSelected = elt;
                         document.getElementById('info-bar').innerHTML = "SELECCIONADO: " + p.tipo.toUpperCase() + " | " + p.color_norm.replace(/_/g, ' ').toUpperCase() + " | " + p.tamaño;
-                        document.getElementById('info-bar').style.backgroundColor = "#d1f2eb";
-                    }};
+                    }});
+                    viewer.addOverlay({{ element: elt, location: new OpenSeadragon.Point(p.x/imgW, p.y/imgW), placement: 'CENTER' }});
+                }});
+                renderSummary(filtered);
+            }}
 
-                    elt.addEventListener('pointerdown', selectAction);
+            function updateFilters(m, v, b) {{
+                const p = b.parentElement;
+                const ac = m === 'tipo' ? 'btn-primary' : 'btn-success';
+                const oc = m === 'tipo' ? 'btn-outline-primary' : 'btn-outline-success';
+                p.querySelectorAll('.btn').forEach(x => {{ x.classList.remove(ac); x.classList.add(oc); }});
+                b.classList.add(ac); b.classList.remove(oc);
+                if (m === 'tipo') filterT = v; else filterC = v;
+                drawPoints();
+            }}
 
-                    viewer.addOverlay({{ element: elt, location: new OpenSeadragon.Point(p.x/
-
+            function renderSummary(data) {{
+                const container = document.getElementById('tables-output');
+                const groups = {{}};
+                let total = 0;
+                data.forEach(p => {{
+                    total++;
+                    if(!groups[p.tipo]) groups[p.tipo] = {{}};
+                    const key = p.color_norm.replace(/_/g, ' ').toUpperCase() + " (" + p.tamaño + ")";
+                    groups[p.tipo][key] = (groups[p.tipo][key] || 0) + 1;
+                }});
+                let html = '<div class="filter-card"><h5 class="fw-bold">RESUMEN</h5>';
+                for(let t in groups) {{
+                    html += '<div class="category-header"><span>' + t.toUpperCase() + '</span></div>';
+                    html += '<table class="table table-sm"><tbody>';
+                    for(let k in groups[t]) html += '<tr><td>' + k + '</td><td class="text-end"><b>' + groups[t][k] + '</b> pz</td></tr>';
+                    html += '</tbody></table>';
+                }}
+                html += '<div class="total-banner">TOTAL: ' + total + ' PIEZAS</div></div>';
+                container.innerHTML = html;
+            }}
+        </script>
+    </body>
+    </html>
+    """
+    st.divider()
+    st.download_button(label="📥 DESCARGAR REPORTE TÉCNICO", data=html_report, file_name=f"{titulo_final}.html", mime="text/html")
 
