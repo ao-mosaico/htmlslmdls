@@ -91,13 +91,22 @@ if xml_file and img_file:
             .filter-card {{ background: white; padding: 15px; border-radius: 12px; margin-bottom: 15px; }}
             .btn-filter {{ border-radius: 20px; font-size: 11px; margin: 2px; text-transform: uppercase; }}
             
+            /* ESTILOS DE LOS PUNTOS */
             .dot {{ 
                 position: absolute; width: 14px; height: 14px; 
                 border-radius: 50%; border: 1.5px solid white; 
                 cursor: pointer; pointer-events: auto; z-index: 10;
                 box-shadow: 0 0 3px rgba(0,0,0,0.5);
-                /* IMPORTANTE: box-sizing asegura que el borde no aumente el tamaño total */
                 box-sizing: border-box; 
+                transition: all 0.2s ease;
+            }}
+            
+            /* ESTADO ACTIVO (ILUMINADO) */
+            .dot.active {{
+                border: 2px solid #fff;
+                box-shadow: 0 0 10px #ffeb3b, 0 0 5px #ffeb3b inset; /* Resplandor amarillo */
+                transform: scale(1.5); /* Crece un 50% */
+                z-index: 100;
             }}
             
             .osd-tooltip {{
@@ -140,6 +149,7 @@ if xml_file and img_file:
             let filterT = 'all';
             let filterC = 'all';
             const tooltip = document.getElementById('tooltip');
+            let currentSelectedDot = null; // Variable para recordar cuál está iluminado
 
             const viewer = OpenSeadragon({{
                 id: "viewer-container",
@@ -148,17 +158,21 @@ if xml_file and img_file:
                     type: 'image',
                     url: '{data_uri}'
                 }},
-                gestureSettingsTouch: {{ pinchRotate: false }},
+                // CONFIGURACIÓN CLAVE PARA EVITAR ZOOM ACCIDENTAL
+                gestureSettingsTouch: {{ 
+                    pinchRotate: false,
+                    clickToZoom: false,  // EVITA QUE UN TOQUE HAGA ZOOM/RESET
+                    dblClickToZoom: true // Permite doble toque para zoom si se quiere
+                }},
+                gestureSettingsMouse: {{
+                    clickToZoom: false
+                }},
                 showNavigationControl: false,
                 defaultZoomLevel: 0,
                 minZoomLevel: 0,
                 visibilityRatio: 1,
                 constrainDuringPan: true,
-                
-                // === SOLUCIÓN MÓVIL ===
-                // 1. Forzamos a que NO use detección Retina para que los píxeles sean 1:1
                 detectRetina: false,
-                // 2. Optimizamos el renderizado
                 imageSmoothingEnabled: true
             }});
 
@@ -175,18 +189,43 @@ if xml_file and img_file:
                     elt.className = "dot";
                     elt.style.backgroundColor = p.color_plot;
                     
-                    const showInfo = (e) => {{
+                    // Función unificada para Click y Touch
+                    const handleSelect = (e) => {{
+                        // Detener propagación para que el visor no reciba el "click"
+                        e.preventDefault(); 
+                        e.stopPropagation();
+
+                        // 1. Quitar iluminación del anterior
+                        if (currentSelectedDot) {{
+                            currentSelectedDot.classList.remove('active');
+                        }}
+
+                        // 2. Iluminar el nuevo
+                        elt.classList.add('active');
+                        currentSelectedDot = elt;
+
+                        // 3. Mostrar Tooltip
                         tooltip.style.display = 'block';
                         tooltip.innerHTML = `<b>${{p.tipo.toUpperCase()}}</b><br>${{p.color_norm}} | ${{p.tamaño}}`;
-                        const xPos = (e.clientX || (e.touches && e.touches[0].clientX));
-                        const yPos = (e.clientY || (e.touches && e.touches[0].clientY));
-                        tooltip.style.left = (xPos + 15) + 'px';
-                        tooltip.style.top = (yPos - 40) + 'px';
+                        
+                        // Calcular posición del tooltip
+                        let clientX, clientY;
+                        if (e.changedTouches && e.changedTouches.length > 0) {{
+                            clientX = e.changedTouches[0].clientX;
+                            clientY = e.changedTouches[0].clientY;
+                        }} else {{
+                            clientX = e.clientX;
+                            clientY = e.clientY;
+                        }}
+                        
+                        tooltip.style.left = (clientX + 15) + 'px';
+                        tooltip.style.top = (clientY - 40) + 'px';
                     }};
                     
-                    elt.onmouseover = showInfo;
-                    elt.ontouchstart = (e) => showInfo(e);
-                    elt.onmouseout = () => tooltip.style.display = 'none';
+                    // Usamos listeners estándar
+                    // 'pointerup' o 'click' suelen funcionar mejor que 'touchstart' para selección simple
+                    elt.addEventListener('click', handleSelect);
+                    elt.addEventListener('touchstart', handleSelect, {{passive: false}});
 
                     viewer.addOverlay({{
                         element: elt,
@@ -196,6 +235,17 @@ if xml_file and img_file:
                 }});
                 renderTables(filtered);
             }}
+
+            // Cerrar tooltip si se toca el fondo (la imagen)
+            viewer.addHandler('canvas-click', function(event) {{
+                if (!event.originalTarget.classList.contains('dot')) {{
+                    tooltip.style.display = 'none';
+                    if (currentSelectedDot) {{
+                        currentSelectedDot.classList.remove('active');
+                        currentSelectedDot = null;
+                    }}
+                }}
+            }});
 
             function updateFilters(mode, val, btn) {{
                 const parent = btn.parentElement;
@@ -233,13 +283,8 @@ if xml_file and img_file:
 
             viewer.addHandler('open', drawPoints);
 
-            // === RECALCULO PARA MÓVILES ===
-            // Cuando la barra de direcciones del celular se esconde o muestra,
-            // forzamos al visor a recalcular las posiciones.
             window.addEventListener('resize', function() {{
-                setTimeout(function() {{
-                    viewer.forceRedraw();
-                }}, 200);
+                setTimeout(function() {{ viewer.forceRedraw(); }}, 200);
             }});
         </script>
     </body>
@@ -248,10 +293,11 @@ if xml_file and img_file:
 
     st.divider()
     st.download_button(
-        label="📥 DESCARGAR REPORTE: CORRECCIÓN MÓVIL",
+        label="📥 DESCARGAR REPORTE: ZOOM PERSISTENTE",
         data=html_report,
         file_name=f"Reporte_{nombre_modelo}.html",
         mime="text/html"
     )
+
 
 
