@@ -84,77 +84,94 @@ if xml_file and img_file:
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
         <script src="https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/openseadragon.min.js"></script>
         <style>
-            body {{ background-color: #eceff1; padding: 10px; font-family: sans-serif; }}
-            .header {{ background: #263238; color: white; padding: 12px; border-radius: 8px; text-align: center; margin-bottom: 10px; }}
+            body {{ background-color: #f1f3f4; padding: 10px; font-family: 'Segoe UI', sans-serif; }}
+            .header {{ background: #2c3e50; color: white; padding: 15px; border-radius: 10px; text-align: center; margin-bottom: 15px; }}
             
-            /* BARRA DE INFORMACIÓN FIJA */
+            .filter-card {{ background: white; padding: 15px; border-radius: 10px; margin-bottom: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }}
+            
             #info-bar {{
-                background: #ffd600;
-                color: #000;
-                padding: 10px;
-                border-radius: 8px;
+                background: #fff9c4;
+                color: #333;
+                padding: 12px;
+                border-radius: 10px;
                 margin-bottom: 10px;
                 text-align: center;
                 font-weight: bold;
-                min-height: 50px;
-                border: 2px solid #000;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                font-size: 14px;
+                border: 2px dashed #fbc02d;
+                font-size: 15px;
+                transition: all 0.3s;
             }}
 
-            #viewer-container {{ width: 100%; height: 60vh; background: #000; border-radius: 8px; position: relative; }}
-            
-            .filter-card {{ background: white; padding: 15px; border-radius: 8px; margin-bottom: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }}
+            #viewer-container {{ width: 100%; height: 65vh; background: #1a1a1a; border-radius: 10px; border: 2px solid #ccc; }}
             
             .dot {{ 
                 width: 12px; height: 12px; 
                 border-radius: 50%; border: 2px solid white; 
-                cursor: pointer; pointer-events: auto !important;
+                cursor: pointer; transition: transform 0.2s;
             }}
-            .dot:active {{ transform: scale(2); background-color: yellow !important; }}
+
+            /* ILUMINACIÓN DEL PUNTO SELECCIONADO */
+            .dot.selected {{
+                border-color: #fff !important;
+                box-shadow: 0 0 15px 5px #fff, 0 0 10px 2px #ffeb3b;
+                transform: scale(2.2);
+                z-index: 100 !important;
+            }}
 
             .total-banner {{
-                background: #0277bd;
+                background: #1976d2;
                 color: white;
                 padding: 15px;
-                border-radius: 8px;
+                border-radius: 10px;
                 text-align: center;
-                font-size: 1.2rem;
+                font-size: 1.3rem;
                 font-weight: bold;
                 margin-top: 20px;
+            }}
+            .category-header {{
+                background: #e1f5fe;
+                padding: 5px 10px;
+                border-radius: 5px;
+                color: #01579b;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-top: 15px;
+                font-weight: bold;
             }}
         </style>
     </head>
     <body>
         <div class="header">
-            <h2 style="font-size: 1rem; margin: 0;">MODELO: {nombre_modelo.upper() if nombre_modelo else 'PENDIENTE'}</h2>
+            <h2 style="font-size: 1.1rem; margin: 0;">REPORTE TÉCNICO: {nombre_modelo.upper() if nombre_modelo else 'MODELO'}</h2>
         </div>
-
-        <div id="info-bar">Toca un cristal para ver sus detalles</div>
 
         <div class="filter-card">
             <div class="mb-2">
-                <small class="fw-bold">TIPO:</small>
-                <button class="btn btn-primary btn-sm rounded-pill px-2" onclick="updateFilters('tipo', 'all', this)">TODOS</button>
-                {' '.join([f'<button class="btn btn-outline-primary btn-sm rounded-pill px-2 mx-1" onclick="updateFilters(\'tipo\', \'{t}\', this)">{t}</button>' for t in tipos_unicos])}
+                <small class="text-muted fw-bold">TIPO:</small>
+                <button class="btn btn-primary btn-sm rounded-pill px-3" onclick="updateFilters('tipo', 'all', this)">TODOS</button>
+                {' '.join([f'<button class="btn btn-outline-primary btn-sm rounded-pill px-3 mx-1" onclick="updateFilters(\'tipo\', \'{t}\', this)">{t}</button>' for t in tipos_unicos])}
             </div>
             <div>
-                <small class="fw-bold">COLOR:</small>
-                <button class="btn btn-success btn-sm rounded-pill px-2" onclick="updateFilters('color', 'all', this)">TODOS</button>
-                {' '.join([f'<button class="btn btn-outline-success btn-sm rounded-pill px-2 mx-1" onclick="updateFilters(\'color\', \'{c}\', this)">{c}</button>' for c in colores_unicos])}
+                <small class="text-muted fw-bold">COLOR:</small>
+                <button class="btn btn-success btn-sm rounded-pill px-3" onclick="updateFilters('color', 'all', this)">TODOS</button>
+                {' '.join([f'<button class="btn btn-outline-success btn-sm rounded-pill px-3 mx-1" onclick="updateFilters(\'color\', \'{c}\', this)">{c}</button>' for c in colores_unicos])}
             </div>
         </div>
 
+        <div id="info-bar">Selecciona un cristal en la imagen para ver el detalle</div>
+
         <div id="viewer-container"></div>
+        
         <div class="filter-card mt-3" id="tables-output"></div>
 
         <script>
             const puntos = {puntos_json};
             const imgW = {width};
+            const modeloActivo = "{nombre_modelo.upper() if nombre_modelo else 'MODELO'}";
             let filterT = 'all';
             let filterC = 'all';
+            let lastSelectedElt = null;
             
             const infoBar = document.getElementById('info-bar');
 
@@ -163,14 +180,14 @@ if xml_file and img_file:
                 prefixUrl: "https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/images/",
                 tileSources: {{ type: 'image', url: '{data_uri}' }},
                 showNavigationControl: false,
-                maxZoomLevel: 50,
-                // DESACTIVAR ZOOM POR CLIC PARA QUE NO ROBE EL EVENTO AL PUNTO
+                maxZoomLevel: 60,
                 gestureSettingsTouch: {{ clickToZoom: false, dblClickToZoom: false }},
                 gestureSettingsMouse: {{ clickToZoom: false, dblClickToZoom: false }}
             }});
 
             function drawPoints() {{
                 viewer.clearOverlays();
+                lastSelectedElt = null;
                 const filtered = puntos.filter(p => {{
                     const matchT = (filterT === 'all' || p.tipo === filterT);
                     const matchC = (filterC === 'all' || p.color_norm === filterC);
@@ -182,16 +199,21 @@ if xml_file and img_file:
                     elt.className = "dot";
                     elt.style.backgroundColor = p.color_plot;
                     
-                    // Acción al tocar
                     const action = (e) => {{
-                        e.preventDefault();
-                        e.stopPropagation(); // Evita que OpenSeadragon mueva el mapa
+                        e.preventDefault(); e.stopPropagation();
                         
-                        infoBar.innerHTML = "SELECCIONADO: " + p.tipo.toUpperCase() + " | " + p.color_norm + " | " + p.tamaño;
-                        infoBar.style.backgroundColor = "#ccff00";
+                        // Iluminar el punto
+                        if(lastSelectedElt) lastSelectedElt.classList.remove('selected');
+                        elt.classList.add('selected');
+                        lastSelectedElt = elt;
+
+                        // Actualizar barra
+                        infoBar.innerHTML = "DETALLE: " + p.tipo.toUpperCase() + " | " + p.color_norm + " | " + p.tamaño;
+                        infoBar.style.backgroundColor = "#c8e6c9";
+                        infoBar.style.borderColor = "#4caf50";
                     }};
 
-                    elt.addEventListener('pointerdown', action); // Mejor para móviles que click
+                    elt.addEventListener('pointerdown', action);
 
                     viewer.addOverlay({{
                         element: elt,
@@ -210,6 +232,10 @@ if xml_file and img_file:
                 parent.querySelectorAll('.btn').forEach(b => {{ b.classList.remove(activeC); b.classList.add(outlineC); }});
                 btn.classList.add(activeC); btn.classList.remove(outlineC);
                 if (mode === 'tipo') filterT = val; else filterC = val;
+                
+                infoBar.innerHTML = "Selecciona un cristal en la imagen para ver el detalle";
+                infoBar.style.backgroundColor = "#fff9c4";
+                infoBar.style.borderColor = "#fbc02d";
                 drawPoints();
             }}
 
@@ -225,9 +251,15 @@ if xml_file and img_file:
                     groups[p.tipo][key] = (groups[p.tipo][key] || 0) + 1;
                 }});
 
-                let html = '<h6 class="text-primary border-bottom pb-2">RESUMEN DE MATERIALES</h6>';
+                // Encabezado con Nombre de Modelo
+                let html = '<h5 class="text-dark border-bottom pb-2 fw-bold">RESUMEN DE COMPONENTES - ' + modeloActivo + '</h5>';
+                
                 for(let t in groups) {{
-                    html += '<div class="mt-2 small"><strong>' + t.toUpperCase() + '</strong></div>';
+                    // Calcular total por tipo
+                    let subtotal = 0;
+                    for(let k in groups[t]) {{ subtotal += groups[t][k]; }}
+                    
+                    html += '<div class="category-header"><span>' + t.toUpperCase() + '</span><span>(' + subtotal + ' piezas)</span></div>';
                     html += '<table class="table table-sm table-striped mb-0" style="font-size: 11px;"><tbody>';
                     for(let k in groups[t]) {{
                         html += '<tr><td>' + k + '</td><td class="text-end"><b>' + groups[t][k] + '</b> pz</td></tr>';
@@ -235,7 +267,7 @@ if xml_file and img_file:
                     html += '</tbody></table>';
                 }}
                 
-                html += '<div class="total-banner">CANTIDAD TOTAL: ' + totalGral + ' PIEZAS</div>';
+                html += '<div class="total-banner">TOTAL GENERAL: ' + totalGral + ' COMPONENTES</div>';
                 container.innerHTML = html;
             }}
 
@@ -247,7 +279,7 @@ if xml_file and img_file:
 
     st.divider()
     st.download_button(
-        label="📥 DESCARGAR REPORTE: VERSIÓN ULTRA-COMPATIBLE",
+        label="📥 DESCARGAR REPORTE FINALIZADO",
         data=html_report,
         file_name=f"Reporte_{nombre_modelo}.html",
         mime="text/html"
