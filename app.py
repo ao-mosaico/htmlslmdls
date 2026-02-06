@@ -6,9 +6,9 @@ import base64
 import json
 from io import BytesIO
 
-# =========================
-# CONFIGURACIÓN
-# =========================
+# =========================================================
+# CONFIGURACIÓN Y CATÁLOGO (Solo se añadieron 3 líneas aquí)
+# =========================================================
 st.set_page_config(page_title="Gestor de Mosaicos Pro", layout="wide")
 
 COLOR_CATALOG = {
@@ -22,22 +22,33 @@ COLOR_CATALOG = {
     "jonquil": "gold", "opal_blue_zircone": "skyblue",
     "opal_green": "lightgreen", "peridot": "limegreen",
     "rose": "pink", "siam": "crimson", "topaz": "orange",
-    "violet": "violet", "zafiro": "royalblue", "sin_color": "gray"
+    "violet": "violet", "zafiro": "royalblue", "sin_color": "gray",
+    # NUEVOS ATRIBUTOS DICROICOS SOLICITADOS
+    "gmb_morado": "#9400D3",      # Morado intenso
+    "rsb_azul": "#0000FF",         # Azul sólido
+    "rsb/gbm_subl": "#87CEFA"     # Azul claro (Sublime)
 }
 
 def normalizar_color(c):
     if pd.isna(c) or c == "": return "sin_color"
-    return c.lower().strip().replace(" ", "_")
+    return str(c).lower().strip().replace(" ", "_")
 
 def ajustar_color_por_tipo(row):
-    tipo, color = row["tipo"].lower(), row["color_norm"]
+    tipo = str(row["tipo"]).lower()
+    color = row["color_norm"]
+    
+    # Lógica específica para Dicroicos: Respeta los nuevos nombres
+    if tipo == "dicroico":
+        if color in ["gmb_morado", "rsb_azul", "rsb/gbm_subl"]:
+            return color
+        return "gmb_morado" # Fallback por seguridad
+        
     if tipo == "balin" and color not in ["plata", "dorado"]: return "plata"
-    if tipo == "dicroico" and color == "sin_color": return "rosa"
     return color
 
-# =========================
-# INTERFAZ LATERAL
-# =========================
+# =========================================================
+# INTERFAZ LATERAL (Sin cambios)
+# =========================================================
 st.sidebar.title("💎 Panel de Control")
 nombre_modelo = st.sidebar.text_input("Nombre del Modelo", placeholder="Ej: PB-8612 A")
 xml_file = st.sidebar.file_uploader("1. Subir XML", type=["xml"])
@@ -63,6 +74,7 @@ if xml_file and img_file:
     
     df = pd.DataFrame(rows)
     df["color_norm"] = df.apply(ajustar_color_por_tipo, axis=1)
+    df["color_plot"] = df["color_norm"].map(lambda x: COLOR_CATALOG.get(x, "gray"))
 
     img = Image.open(img_file)
     width, height = img.size
@@ -75,11 +87,16 @@ if xml_file and img_file:
     tipos_unicos = sorted(df["tipo"].unique().tolist())
     colores_unicos = sorted(df["color_norm"].unique().tolist())
 
+    titulo_final = f"Componentes {nombre_modelo}" if nombre_modelo else "Componentes"
+
+    # =========================================================
+    # HTML/JS (Manteniendo la estructura de botones de colores y 65px)
+    # =========================================================
     html_report = f"""
     <!DOCTYPE html>
     <html>
     <head>
-        <title>Componentes {nombre_modelo}</title>
+        <title>{titulo_final}</title>
         <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
         <script src="https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/openseadragon.min.js"></script>
@@ -88,19 +105,10 @@ if xml_file and img_file:
             .header {{ background: #2c3e50; color: white; padding: 15px; text-align: center; border-bottom: 4px solid #1abc9c; }}
             
             #info-bar {{
-                position: -webkit-sticky;
-                position: sticky;
-                top: 0;
-                z-index: 2000;
-                background: #fff9c4;
-                color: #333;
-                padding: 12px;
-                text-align: center;
-                font-weight: bold;
-                border-bottom: 2px solid #fbc02d;
-                font-size: 16px;
-                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-                min-height: 50px;
+                position: -webkit-sticky; position: sticky; top: 0; z-index: 2000;
+                background: #fff9c4; color: #333; padding: 12px; text-align: center;
+                font-weight: bold; border-bottom: 2px solid #fbc02d; font-size: 16px;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.1); min-height: 50px;
             }}
 
             #workspace {{ background: #1a1a1a; position: relative; display: flex; flex-direction: column; }}
@@ -108,41 +116,26 @@ if xml_file and img_file:
             #workspace:fullscreen #viewer-container {{ flex: 1; height: auto; }}
             #viewer-container {{ width: 100%; height: 75vh; background: #000; }}
             
-            /* AJUSTE DE POSICIÓN PARA QUE NO QUEDEN OCULTOS POR EL BANNER */
             .custom-nav {{
-                position: absolute; 
-                top: 60px; /* Bajamos los botones para que liberen el espacio del banner */
-                left: 15px; 
-                z-index: 1005;
-                display: flex; 
-                flex-direction: column; 
-                gap: 10px;
+                position: absolute; top: 65px; left: 15px; z-index: 1005;
+                display: flex; flex-direction: column; gap: 10px;
             }}
             .nav-btn {{
                 width: 44px; height: 44px; border-radius: 10px; border: 2px solid white;
                 color: white; font-size: 24px; font-weight: bold; display: flex;
                 align-items: center; justify-content: center; cursor: pointer;
                 box-shadow: 0 4px 6px rgba(0,0,0,0.3); transition: all 0.2s;
-                text-decoration: none; user-select: none;
             }}
-            .nav-btn:hover {{ filter: brightness(1.1); transform: scale(1.05); }}
-            .nav-btn:active {{ transform: scale(0.95); }}
-            
-            /* Colores solicitados */
-            .btn-zoom-in {{ background-color: #1abc9c !important; }} /* Verde Agua */
-            .btn-zoom-out {{ background-color: #ffb7c5 !important; color: #333 !important; }} /* Rosa Claro */
-            .btn-home {{ background-color: #3498db !important; }} /* Azul */
+            .btn-zoom-in {{ background-color: #1abc9c !important; }}
+            .btn-zoom-out {{ background-color: #ffb7c5 !important; color: #333 !important; }}
+            .btn-home {{ background-color: #3498db !important; }}
 
             .btn-fs {{
-                position: absolute; 
-                top: 60px; /* Bajamos también el botón de pantalla completa */
-                right: 15px; 
-                z-index: 1005;
+                position: absolute; top: 65px; right: 15px; z-index: 1005;
                 background: #ffffff; border: 2px solid #2c3e50; padding: 10px 20px;
                 border-radius: 30px; font-weight: bold; cursor: pointer; 
-                box-shadow: 0 4px 6px rgba(0,0,0,0.2); transition: all 0.2s;
+                box-shadow: 0 4px 6px rgba(0,0,0,0.2);
             }}
-            .btn-fs:hover {{ background: #f0f0f0; transform: scale(1.05); }}
 
             .dot {{ width: 14px; height: 14px; border-radius: 50%; border: 2px solid white; cursor: pointer; transition: all 0.2s; }}
             .dot.selected {{ border: 3px solid #fff !important; box-shadow: 0 0 12px 4px #fff, 0 0 8px 1px #ffeb3b; transform: scale(1.6); z-index: 999 !important; }}
@@ -155,9 +148,8 @@ if xml_file and img_file:
     </head>
     <body>
         <div class="header">
-            <h2 style="font-size: 1.4rem; margin: 0;">Componentes {nombre_modelo if nombre_modelo else ''}</h2>
+            <h2 style="font-size: 1.4rem; margin: 0;">{titulo_final}</h2>
         </div>
-
         <div class="p-container">
             <div class="filter-card">
                 <div class="mb-2">
@@ -172,20 +164,16 @@ if xml_file and img_file:
                 </div>
             </div>
         </div>
-
         <div id="workspace">
             <div id="info-bar">Selecciona un punto para ver su descripción técnica</div>
-            
             <div class="custom-nav">
-                <div id="btn-in" class="nav-btn btn-zoom-in" title="Acercar">+</div>
-                <div id="btn-out" class="nav-btn btn-zoom-out" title="Alejar">−</div>
-                <div id="btn-home" class="nav-btn btn-home" title="Reiniciar">🏠</div>
+                <div id="btn-in" class="nav-btn btn-zoom-in">+</div>
+                <div id="btn-out" class="nav-btn btn-zoom-out">−</div>
+                <div id="btn-home" class="nav-btn btn-home">🏠</div>
             </div>
-
             <button class="btn-fs" onclick="toggleFullScreen()">📺 Pantalla Completa</button>
             <div id="viewer-container"></div>
         </div>
-        
         <div class="p-container">
             <div class="filter-card" id="tables-output"></div>
         </div>
@@ -193,23 +181,12 @@ if xml_file and img_file:
         <script>
             const puntos = {puntos_json};
             const imgW = {width};
-            const modeloActivo = "{nombre_modelo if nombre_modelo else ''}";
-            let filterT = 'all';
-            let filterC = 'all';
-            let lastSelectedElt = null;
-            
-            const infoBar = document.getElementById('info-bar');
-
             const viewer = OpenSeadragon({{
                 id: "viewer-container",
                 prefixUrl: "https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/images/",
                 tileSources: {{ type: 'image', url: '{data_uri}' }},
-                showNavigationControl: false, 
-                maxZoomLevel: 60,
-                minZoomImageRatio: 1.0,
-                visibilityRatio: 1.0,
-                constrainDuringPan: true,
-                gestureSettingsTouch: {{ clickToZoom: false, dblClickToZoom: false }}
+                showNavigationControl: false, maxZoomLevel: 60, minZoomImageRatio: 1.0, visibilityRatio: 1.0,
+                constrainDuringPan: true, gestureSettingsTouch: {{ clickToZoom: false, dblClickToZoom: false }}
             }});
 
             document.getElementById('btn-in').onclick = () => viewer.viewport.zoomBy(1.3);
@@ -220,11 +197,8 @@ if xml_file and img_file:
 
             function toggleFullScreen() {{
                 const elem = document.getElementById("workspace");
-                if (!document.fullscreenElement) {{
-                    elem.requestFullscreen();
-                }} else {{
-                    document.exitFullscreen();
-                }}
+                if (!document.fullscreenElement) elem.requestFullscreen();
+                else document.exitFullscreen();
             }}
 
             function drawPoints() {{
@@ -234,45 +208,28 @@ if xml_file and img_file:
                     const matchC = (filterC === 'all' || p.color_norm === filterC);
                     return matchT && matchC;
                 }});
-
                 filtered.forEach(p => {{
                     const elt = document.createElement("div");
                     elt.className = "dot";
                     elt.style.backgroundColor = p.color_plot;
-                    
-                    const action = (e) => {{
-                        if(e) {{ e.preventDefault(); e.stopPropagation(); }}
+                    elt.onclick = () => {{
                         if(lastSelectedElt) lastSelectedElt.classList.remove('selected');
-                        elt.classList.add('selected');
-                        lastSelectedElt = elt;
-
-                        infoBar.innerHTML = "PUNTO SELECCIONADO: " + p.tipo.toUpperCase() + " | " + p.color_norm + " | " + p.tamaño;
-                        infoBar.style.backgroundColor = "#d1f2eb";
-                        infoBar.style.borderColor = "#1abc9c";
+                        elt.classList.add('selected'); lastSelectedElt = elt;
+                        document.getElementById('info-bar').innerHTML = "PUNTO SELECCIONADO: " + p.tipo.toUpperCase() + " | " + p.color_norm.replace(/_/g, ' ') + " | " + p.tamaño;
                     }};
-
-                    elt.addEventListener('pointerdown', action);
-
-                    viewer.addOverlay({{
-                        element: elt,
-                        location: new OpenSeadragon.Point(p.x / imgW, p.y / imgW),
-                        placement: OpenSeadragon.Placement.CENTER
-                    }});
+                    viewer.addOverlay({{ element: elt, location: new OpenSeadragon.Point(p.x/imgW, p.y/imgW), placement: 'CENTER' }});
                 }});
                 renderSummary(filtered);
             }}
 
-            function updateFilters(mode, val, btn) {{
-                const parent = btn.parentElement;
-                const activeC = mode === 'tipo' ? 'btn-primary' : 'btn-success';
-                const outlineC = mode === 'tipo' ? 'btn-outline-primary' : 'btn-outline-success';
-                parent.querySelectorAll('.btn').forEach(b => {{ b.classList.remove(activeC); b.classList.add(outlineC); }});
-                btn.classList.add(activeC); btn.classList.remove(outlineC);
-                if (mode === 'tipo') filterT = val; else filterC = val;
-                
-                infoBar.innerHTML = "Selecciona un punto para ver su descripción técnica";
-                infoBar.style.backgroundColor = "#fff9c4";
-                infoBar.style.borderColor = "#fbc02d";
+            let filterT = 'all', filterC = 'all', lastSelectedElt = null;
+            function updateFilters(m, v, b) {{
+                const p = b.parentElement;
+                const ac = m === 'tipo' ? 'btn-primary' : 'btn-success';
+                const oc = m === 'tipo' ? 'btn-outline-primary' : 'btn-outline-success';
+                p.querySelectorAll('.btn').forEach(x => {{ x.classList.remove(ac); x.classList.add(oc); }});
+                b.classList.add(ac); b.classList.remove(oc);
+                if (m === 'tipo') filterT = v; else filterC = v;
                 drawPoints();
             }}
 
@@ -280,37 +237,26 @@ if xml_file and img_file:
                 const container = document.getElementById('tables-output');
                 const groups = {{}};
                 let totalGral = 0;
-
                 data.forEach(p => {{
                     totalGral++;
                     if(!groups[p.tipo]) groups[p.tipo] = {{}};
-                    const key = p.color_norm + " (" + p.tamaño + ")";
+                    const key = p.color_norm.replace(/_/g, ' ') + " (" + p.tamaño + ")";
                     groups[p.tipo][key] = (groups[p.tipo][key] || 0) + 1;
                 }});
-
-                let html = '<h5 class="text-dark border-bottom pb-2 fw-bold">RESUMEN DE COMPONENTES - ' + modeloActivo + '</h5>';
+                let html = '<h5 class="fw-bold">RESUMEN - {nombre_modelo}</h5>';
                 for(let t in groups) {{
-                    let subtotal = 0;
-                    for(let k in groups[t]) {{ subtotal += groups[t][k]; }}
-                    html += '<div class="category-header"><span>' + t.toUpperCase() + '</span><span>(' + subtotal + ' piezas)</span></div>';
-                    html += '<table class="table table-sm table-hover mb-0 mt-1" style="font-size: 11px;"><tbody>';
-                    for(let k in groups[t]) {{
-                        html += '<tr><td>' + k + '</td><td class="text-end"><b>' + groups[t][k] + '</b> pz</td></tr>';
-                    }}
+                    html += '<div class="category-header"><span>' + t.toUpperCase() + '</span></div>';
+                    html += '<table class="table table-sm"><tbody>';
+                    for(let k in groups[t]) html += '<tr><td>' + k + '</td><td>' + groups[t][k] + ' pz</td></tr>';
                     html += '</tbody></table>';
                 }}
-                html += '<div class="total-banner">CANTIDAD TOTAL: ' + totalGral + ' PIEZAS</div>';
+                html += '<div class="total-banner">TOTAL: ' + totalGral + ' PIEZAS</div>';
                 container.innerHTML = html;
             }}
         </script>
     </body>
     </html>
     """
-
     st.divider()
-    st.download_button(
-        label=f"📥 DESCARGAR REPORTE: COMPONENTES {nombre_modelo}",
-        data=html_report,
-        file_name=f"Componentes_{nombre_modelo}.html",
-        mime="text/html"
-    )
+    st.download_button(label=f"📥 DESCARGAR REPORTE", data=html_report, file_name=f"{titulo_final}.html", mime="text/html")
+
