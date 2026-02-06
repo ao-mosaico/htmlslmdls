@@ -110,17 +110,18 @@ if xml_file and img_file:
             #workspace:fullscreen {{ height: 100vh !important; width: 100vw !important; }}
             #viewer-container {{ width: 100%; height: 100%; }}
             
-            .custom-nav {{ position: absolute; top: 65px; left: 15px; z-index: 1005; display: flex; flex-direction: column; gap: 8px; }}
+            /* POSICIONAMIENTO CORREGIDO PARA QUE NO LOS TAPE EL BANNER */
+            .custom-nav {{ position: absolute; top: 125px; left: 15px; z-index: 1005; display: flex; flex-direction: column; gap: 8px; }}
+            .btn-fs {{ position: absolute; top: 125px; right: 15px; z-index: 1005; background: #fff; border: 2px solid #2c3e50; padding: 8px 16px; border-radius: 20px; font-weight: bold; cursor: pointer; }}
+
             .nav-btn {{ width: 44px; height: 44px; border-radius: 8px; border: 2px solid white; color: white; font-size: 22px; font-weight: bold; display: flex; align-items: center; justify-content: center; cursor: pointer; }}
             .btn-zoom-in {{ background: #1abc9c !important; }}
             .btn-zoom-out {{ background: #ffb7c5 !important; color: #333 !important; }}
             .btn-home {{ background: #3498db !important; }}
-            .btn-fs {{ position: absolute; top: 65px; right: 15px; z-index: 1005; background: #fff; border: 2px solid #2c3e50; padding: 8px 16px; border-radius: 20px; font-weight: bold; cursor: pointer; }}
 
             .dot {{ width: 14px; height: 14px; border-radius: 50%; border: 2px solid white; cursor: pointer; }}
             .dot.selected {{ border: 3px solid #fff !important; box-shadow: 0 0 15px #fff; transform: scale(1.6); z-index: 999 !important; }}
 
-            /* Ajuste para evitar que el zoom corte el reporte */
             .report-container {{ position: relative; z-index: 1; background: #f4f7f6; padding-top: 20px; }}
             .summary-card {{ background: white; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); padding: 25px; margin-bottom: 40px; }}
             
@@ -312,4 +313,5 @@ if xml_file and img_file:
     </html>
     """
     st.divider()
-    st.download_button(label="📥 DESCARGAR REPORTE FINAL CORREGIDO", data=html_report, file_name=f"{titulo_final}.html", mime="text/html")
+    st.download_button(label="📥 DESCARGAR REPORTE CON BOTONES REPARADOS", data=html_report, file_name=f"{titulo_final}.html", mime="text/html")
+
