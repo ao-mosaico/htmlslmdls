@@ -81,7 +81,7 @@ if xml_file and img_file:
     <html>
     <head>
         <title>Reporte Pro: {nombre_modelo}</title>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=no">
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
         <script src="https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/openseadragon.min.js"></script>
         <style>
@@ -91,13 +91,13 @@ if xml_file and img_file:
             .filter-card {{ background: white; padding: 15px; border-radius: 12px; margin-bottom: 15px; }}
             .btn-filter {{ border-radius: 20px; font-size: 11px; margin: 2px; text-transform: uppercase; }}
             
-            /* CORRECCIÓN CRÍTICA: Eliminado 'transform: translate' para evitar doble centrado */
             .dot {{ 
                 position: absolute; width: 14px; height: 14px; 
                 border-radius: 50%; border: 1.5px solid white; 
                 cursor: pointer; pointer-events: auto; z-index: 10;
                 box-shadow: 0 0 3px rgba(0,0,0,0.5);
-                /* IMPORTANTE: No usar transform aquí, OpenSeadragon ya centra el elemento */
+                /* IMPORTANTE: box-sizing asegura que el borde no aumente el tamaño total */
+                box-sizing: border-box; 
             }}
             
             .osd-tooltip {{
@@ -153,7 +153,13 @@ if xml_file and img_file:
                 defaultZoomLevel: 0,
                 minZoomLevel: 0,
                 visibilityRatio: 1,
-                constrainDuringPan: true
+                constrainDuringPan: true,
+                
+                // === SOLUCIÓN MÓVIL ===
+                // 1. Forzamos a que NO use detección Retina para que los píxeles sean 1:1
+                detectRetina: false,
+                // 2. Optimizamos el renderizado
+                imageSmoothingEnabled: true
             }});
 
             function drawPoints() {{
@@ -182,9 +188,6 @@ if xml_file and img_file:
                     elt.ontouchstart = (e) => showInfo(e);
                     elt.onmouseout = () => tooltip.style.display = 'none';
 
-                    // PRECISION FINAL:
-                    // Usamos la coordenada normalizada (x/ancho, y/ancho)
-                    // Y dejamos que 'Placement.CENTER' haga el trabajo sucio sin interferencia CSS.
                     viewer.addOverlay({{
                         element: elt,
                         location: new OpenSeadragon.Point(p.x / imgW, p.y / imgW),
@@ -229,6 +232,15 @@ if xml_file and img_file:
             }}
 
             viewer.addHandler('open', drawPoints);
+
+            // === RECALCULO PARA MÓVILES ===
+            // Cuando la barra de direcciones del celular se esconde o muestra,
+            // forzamos al visor a recalcular las posiciones.
+            window.addEventListener('resize', function() {{
+                setTimeout(function() {{
+                    viewer.forceRedraw();
+                }}, 200);
+            }});
         </script>
     </body>
     </html>
@@ -236,7 +248,7 @@ if xml_file and img_file:
 
     st.divider()
     st.download_button(
-        label="📥 DESCARGAR REPORTE: AJUSTE FINAL CSS",
+        label="📥 DESCARGAR REPORTE: CORRECCIÓN MÓVIL",
         data=html_report,
         file_name=f"Reporte_{nombre_modelo}.html",
         mime="text/html"
