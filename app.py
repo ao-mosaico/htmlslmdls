@@ -6,7 +6,7 @@ import base64
 from io import BytesIO
 
 # =========================================================
-# CONFIGURACIÓN Y CATÁLOGO (Manteniendo tus labels)
+# CONFIGURACIÓN Y CATÁLOGO
 # =========================================================
 st.set_page_config(page_title="Gestor de Mosaicos Pro", layout="wide")
 
@@ -88,7 +88,7 @@ if xml_file and img_file:
     titulo_final = f"Componentes {nombre_modelo}" if nombre_modelo else "Componentes"
 
     # =========================================================
-    # REPORTE HTML (Con corrección de contraste dinámico)
+    # REPORTE HTML (Con botón NINGUNO y Contraste Dinámico)
     # =========================================================
     html_report = f"""
     <!DOCTYPE html>
@@ -107,7 +107,6 @@ if xml_file and img_file:
                 background: #f8f9fa; color: #2c3e50; padding: 12px; text-align: center;
                 font-weight: bold; border-bottom: 3px solid #1abc9c; font-size: 18px;
                 transition: all 0.3s ease; min-height: 54px;
-                text-shadow: 0px 1px 2px rgba(255,255,255,0.3); /* Mejora lectura */
             }}
 
             #workspace {{ background: #1a1a1a; position: relative; }}
@@ -123,7 +122,6 @@ if xml_file and img_file:
             .dot {{ width: 14px; height: 14px; border-radius: 50%; border: 2px solid white; cursor: pointer; }}
             .dot.selected {{ border: 3px solid #fff !important; box-shadow: 0 0 15px #fff; transform: scale(1.6); z-index: 999 !important; }}
 
-            /* Estilo de Tabla Interactiva */
             .summary-card {{ background: white; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); padding: 20px; margin: 20px 0; }}
             .category-row {{ background: #f1f4f8; border-left: 5px solid #3498db; padding: 10px 15px; margin-top: 15px; font-weight: bold; display: flex; justify-content: space-between; align-items: center; border-radius: 4px; }}
             .item-table {{ width: 100%; }}
@@ -139,9 +137,10 @@ if xml_file and img_file:
         
         <div class="filter-section">
             <div class="mb-2">
-                <small class="fw-bold text-muted">TIPO:</small>
+                <small class="fw-bold text-muted">TIPO DE PIEZA:</small>
                 <button class="btn btn-primary btn-sm rounded-pill px-3" onclick="updateFilters('tipo', 'all', this)">TODOS</button>
                 {' '.join([f'<button class="btn btn-outline-primary btn-sm rounded-pill px-3 mx-1" onclick="updateFilters(\'tipo\', \'{t}\', this)">{t.upper()}</button>' for t in tipos_unicos])}
+                <button class="btn btn-outline-secondary btn-sm rounded-pill px-3 mx-1" onclick="updateFilters('tipo', 'none', this)">❌ NINGUNO</button>
             </div>
             <div>
                 <small class="fw-bold text-muted">COLOR:</small>
@@ -179,20 +178,15 @@ if xml_file and img_file:
 
             let filterT = 'all', filterC = 'all', lastSelected = null;
 
-            // Función para calcular si el color es oscuro o claro
             function getContrastColor(hex) {{
                 if (hex.indexOf('#') === 0) hex = hex.slice(1);
-                // Si es nombre de color CSS
-                const cssColors = {{ 'purple': '800080', 'black': '000000', 'royalblue': '4169E1', 'crimson': 'DC143C' }};
+                const cssColors = {{ 'purple': '800080', 'black': '000000', 'royalblue': '4169E1', 'crimson': 'DC143C', 'gray': '808080' }};
                 if (cssColors[hex]) hex = cssColors[hex];
-                
                 if (hex.length === 3) hex = hex[0]+hex[0]+hex[1]+hex[1]+hex[2]+hex[2];
-                if (hex.length !== 6) return '#2c3e50'; // Por defecto oscuro
-
+                if (hex.length !== 6) return '#2c3e50';
                 const r = parseInt(hex.slice(0, 2), 16);
                 const g = parseInt(hex.slice(2, 4), 16);
                 const b = parseInt(hex.slice(4, 6), 16);
-                // Fórmula de luminancia
                 const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
                 return (yiq >= 128) ? '#2c3e50' : '#ffffff';
             }}
@@ -201,6 +195,16 @@ if xml_file and img_file:
 
             function drawPoints() {{
                 viewer.clearOverlays();
+                
+                // Si el filtro es 'none', no dibujamos nada
+                if (filterT === 'none') {{
+                    document.getElementById('info-bar').innerHTML = "MODO DE INSPECCIÓN: PUNTOS OCULTOS";
+                    document.getElementById('info-bar').style.backgroundColor = "#f8f9fa";
+                    document.getElementById('info-bar').style.color = "#2c3e50";
+                    renderSummary([]);
+                    return;
+                }}
+
                 const filtered = puntos.filter(p => {{
                     return (filterT === 'all' || p.tipo === filterT) && (filterC === 'all' || p.color_norm === filterC);
                 }});
@@ -218,11 +222,9 @@ if xml_file and img_file:
                         
                         const bar = document.getElementById('info-bar');
                         bar.style.backgroundColor = p.color_plot;
-                        // Ajuste dinámico de color de letra
                         const textColor = getContrastColor(p.color_plot);
                         bar.style.color = textColor;
                         bar.style.textShadow = textColor === '#ffffff' ? '1px 1px 2px rgba(0,0,0,0.5)' : 'none';
-                        
                         bar.innerHTML = "SELECCIONADO: " + p.tipo.toUpperCase() + " | " + p.color_norm.replace(/_/g, ' ').toUpperCase() + " (" + p.tamaño + ")";
                     }});
                     
@@ -235,7 +237,11 @@ if xml_file and img_file:
                 const container = document.getElementById('tables-output');
                 const groups = {{}};
                 let totalGral = 0;
-                data.forEach(p => {{
+                
+                // Usamos los puntos originales para el resumen si el filtro es 'none'
+                const summaryData = (filterT === 'none') ? puntos : data;
+
+                summaryData.forEach(p => {{
                     totalGral++;
                     if(!groups[p.tipo]) groups[p.tipo] = {{}};
                     const key = p.color_norm.replace(/_/g, ' ').toUpperCase() + " (" + p.tamaño + ")";
@@ -258,10 +264,31 @@ if xml_file and img_file:
 
             function updateFilters(m, v, b) {{
                 const p = b.parentElement;
-                const ac = m === 'tipo' ? 'btn-primary' : 'btn-success';
-                const oc = m === 'tipo' ? 'btn-outline-primary' : 'btn-outline-success';
-                p.querySelectorAll('.btn').forEach(x => {{ x.classList.remove(ac); x.classList.add(oc); }});
-                b.classList.add(ac); b.classList.remove(oc);
+                let activeClass = '';
+                let outlineClass = '';
+                
+                if (m === 'tipo') {{
+                    activeClass = (v === 'none') ? 'btn-secondary' : 'btn-primary';
+                    outlineClass = (v === 'none') ? 'btn-outline-secondary' : 'btn-outline-primary';
+                }} else {{
+                    activeClass = 'btn-success';
+                    outlineClass = 'btn-outline-success';
+                }}
+
+                p.querySelectorAll('.btn').forEach(x => {{
+                    // Resetear clases basándose en el tipo de botón original
+                    if (x.classList.contains('btn-primary') || x.classList.contains('btn-outline-primary')) {{
+                        x.classList.remove('btn-primary'); x.classList.add('btn-outline-primary');
+                    }} else if (x.classList.contains('btn-success') || x.classList.contains('btn-outline-success')) {{
+                        x.classList.remove('btn-success'); x.classList.add('btn-outline-success');
+                    }} else if (x.classList.contains('btn-secondary') || x.classList.contains('btn-outline-secondary')) {{
+                        x.classList.remove('btn-secondary'); x.classList.add('btn-outline-secondary');
+                    }}
+                }});
+
+                b.classList.add(activeClass);
+                b.classList.remove(outlineClass);
+                
                 if (m === 'tipo') filterT = v; else filterC = v;
                 drawPoints();
             }}
