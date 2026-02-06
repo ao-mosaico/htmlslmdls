@@ -44,7 +44,6 @@ xml_file = st.sidebar.file_uploader("1. Subir XML", type=["xml"])
 img_file = st.sidebar.file_uploader("2. Subir Imagen", type=["jpg", "png", "jpeg"])
 
 if xml_file and img_file:
-    # --- Procesamiento XML ---
     tree = ET.parse(xml_file)
     root = tree.getroot()
     rows = []
@@ -65,7 +64,6 @@ if xml_file and img_file:
     df = pd.DataFrame(rows)
     df["color_norm"] = df.apply(ajustar_color_por_tipo, axis=1)
 
-    # --- Imagen Base64 ---
     img = Image.open(img_file)
     width, height = img.size
     buffered = BytesIO()
@@ -75,14 +73,11 @@ if xml_file and img_file:
     data_uri = f"data:image/{img_format.lower()};base64,{img_base64}"
 
     st.subheader(f"Modelo: {nombre_modelo if nombre_modelo else 'Sin nombre'}")
-    st.success("✅ Datos procesados. Descarga el reporte para visualizar con zoom táctil profesional.")
     
-    # Preparación datos
     puntos_json = df.to_json(orient='records')
     tipos_unicos = sorted(df["tipo"].unique().tolist())
     colores_unicos = sorted(df["color_norm"].unique().tolist())
 
-    # HTML con ESCAPE DE LLAVES ({{ y }})
     html_report = f"""
     <!DOCTYPE html>
     <html>
@@ -97,10 +92,26 @@ if xml_file and img_file:
             #viewer-container {{ width: 100%; height: 60vh; background: #333; border-radius: 12px; position: relative; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }}
             .filter-card {{ background: white; padding: 15px; border-radius: 12px; margin-bottom: 15px; }}
             .btn-filter {{ border-radius: 20px; font-size: 11px; margin: 2px; text-transform: uppercase; }}
-            .dot {{ position: absolute; width: 8px; height: 8px; border-radius: 50%; border: 1px solid white; transform: translate(-50%, -50%); pointer-events: none; }}
+            
+            /* ESTILO DE LOS PUNTOS Y TOOLTIPS */
+            .dot {{ 
+                position: absolute; width: 12px; height: 12px; 
+                border-radius: 50%; border: 1px solid white; 
+                transform: translate(-50%, -50%); 
+                cursor: pointer; pointer-events: auto; z-index: 10;
+            }}
+            .dot:hover {{ border: 2px solid yellow; transform: translate(-50%, -50%) scale(1.5); }}
+            
+            .osd-tooltip {{
+                position: absolute; background: rgba(0,0,0,0.85); color: white;
+                padding: 5px 10px; border-radius: 5px; font-size: 11px;
+                pointer-events: none; display: none; z-index: 1000;
+                white-space: nowrap; box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+            }}
         </style>
     </head>
     <body>
+        <div id="tooltip" class="osd-tooltip"></div>
         <div class="header">
             <h1 style="font-size: 1.4rem; margin: 0;">REPORTE DE COMPONENTES</h1>
             <div style="color: #3498db; font-weight: bold;">{nombre_modelo.upper() if nombre_modelo else 'SIN NOMBRE'}</div>
@@ -132,14 +143,12 @@ if xml_file and img_file:
             const imgH = {height};
             let filterT = 'all';
             let filterC = 'all';
+            const tooltip = document.getElementById('tooltip');
 
             const viewer = OpenSeadragon({{
                 id: "viewer-container",
                 prefixUrl: "https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/images/",
-                tileSources: {{
-                    type: 'image',
-                    url: '{data_uri}'
-                }},
+                tileSources: {{ type: 'image', url: '{data_uri}' }},
                 gestureSettingsTouch: {{ pinchRotate: true, scrollToZoom: true }},
                 showNavigationControl: false,
                 defaultZoomLevel: 0,
@@ -160,6 +169,19 @@ if xml_file and img_file:
                     const elt = document.createElement("div");
                     elt.className = "dot";
                     elt.style.backgroundColor = p.color_plot;
+                    
+                    // Eventos para el Tooltip
+                    const showInfo = (e) => {{
+                        tooltip.style.display = 'block';
+                        tooltip.innerHTML = `<b>${{p.tipo.toUpperCase()}}</b><br>${{p.color_norm}} | ${{p.tamaño}}`;
+                        tooltip.style.left = (e.pageX + 10) + 'px';
+                        tooltip.style.top = (e.pageY + 10) + 'px';
+                    }};
+                    
+                    elt.onmouseover = showInfo;
+                    elt.ontouchstart = showInfo;
+                    elt.onmouseout = () => tooltip.style.display = 'none';
+
                     viewer.addOverlay({{
                         element: elt,
                         location: new OpenSeadragon.Point(p.x / imgW, p.y / imgW)
@@ -172,14 +194,9 @@ if xml_file and img_file:
                 const parent = btn.parentElement;
                 const activeClass = mode === 'tipo' ? 'btn-primary' : 'btn-success';
                 const outlineClass = mode === 'tipo' ? 'btn-outline-primary' : 'btn-outline-success';
-                
-                parent.querySelectorAll('.btn').forEach(b => {{
-                    b.classList.remove(activeClass); b.classList.add(outlineClass);
-                }});
+                parent.querySelectorAll('.btn').forEach(b => {{ b.classList.remove(activeClass); b.classList.add(outlineClass); }});
                 btn.classList.add(activeClass); btn.classList.remove(outlineClass);
-
-                if(mode === 'tipo') filterT = val;
-                else filterC = val;
+                if(mode === 'tipo') filterT = val; else filterC = val;
                 drawPoints();
             }}
 
@@ -192,7 +209,6 @@ if xml_file and img_file:
                     const subKey = p.color_norm + '|' + p.tamaño;
                     groups[key][subKey] = (groups[key][subKey] || 0) + 1;
                 }});
-
                 let html = '';
                 for(const t in groups) {{
                     html += `<div class="mt-2"><strong>${{t.toUpperCase()}}</strong></div>
@@ -216,12 +232,11 @@ if xml_file and img_file:
 
     st.divider()
     st.download_button(
-        label="📥 DESCARGAR REPORTE TÁCTIL",
+        label="📥 DESCARGAR REPORTE TÁCTIL CON INFO",
         data=html_report,
         file_name=f"Reporte_{nombre_modelo}.html",
         mime="text/html"
     )
-else:
-    st.info("Sube los archivos para generar el reporte optimizado para celulares.")
+
 
 
