@@ -67,7 +67,7 @@ if xml_file and img_file:
     img = Image.open(img_file)
     width, height = img.size
     buffered = BytesIO()
-    img.save(buffered, format=img.format if img.format else "JPEG")
+    img.save(buffered, format="JPEG")
     img_base64 = base64.b64encode(buffered.getvalue()).decode()
     data_uri = f"data:image/jpeg;base64,{img_base64}"
 
@@ -75,6 +75,7 @@ if xml_file and img_file:
     tipos_unicos = sorted(df["tipo"].unique().tolist())
     colores_unicos = sorted(df["color_norm"].unique().tolist())
 
+    # SE USAN DOBLES LLAVES {{ }} PARA CSS Y JS PORQUE ESTAMOS DENTRO DE UN F-STRING
     html_report = f"""
     <!DOCTYPE html>
     <html>
@@ -100,7 +101,6 @@ if xml_file and img_file:
                 transform: scale(1.6);
             }}
 
-            /* TOOLTIP DE ALTA VISIBILIDAD */
             #floating-info {{
                 position: fixed;
                 background: rgba(0, 0, 0, 0.95);
@@ -207,12 +207,10 @@ if xml_file and img_file:
             function updateTooltipPos() {{
                 if (!currentSelectedDot || !currentPointData) return;
                 
-                // MÉTODO DE PRECISIÓN: Convertir coordenadas de imagen a píxeles de pantalla
                 const viewportPoint = new OpenSeadragon.Point(currentPointData.x / imgW, currentPointData.y / imgW);
                 const pixel = viewer.viewport.pixelFromPoint(viewportPoint, true);
                 const containerRect = document.getElementById('viewer-container').getBoundingClientRect();
 
-                // Sumar la posición del contenedor para obtener coordenadas globales
                 const x = pixel.x + containerRect.left - (tooltip.offsetWidth / 2);
                 const y = pixel.y + containerRect.top - tooltip.offsetHeight - 20;
 
@@ -220,7 +218,6 @@ if xml_file and img_file:
                 tooltip.style.top = y + 'px';
             }}
 
-            // Escuchas de movimiento para que el tooltip siga al punto
             viewer.addHandler('animation', updateTooltipPos);
             viewer.addHandler('canvas-drag', updateTooltipPos);
             viewer.addHandler('canvas-scroll', updateTooltipPos);
@@ -256,7 +253,7 @@ if xml_file and img_file:
                     const key = p.color_norm + '|' + p.tamaño;
                     groups[p.tipo][key] = (groups[p.tipo][key] || 0) + 1;
                 }});
-                let html = '<h6 class="text-primary border-bottom pb-2">RESUMEN DE MATERIALES SELECCIONADOS</h6>';
+                let html = '<h6 class="text-primary border-bottom pb-2">RESUMEN DE MATERIALES</h6>';
                 for(const t in groups) {{
                     html += `<div class="mt-2 small"><strong>${{t.toUpperCase()}}</strong></div>
                              <table class="table table-sm table-striped" style="font-size: 10px;"><tbody>`;
@@ -265,7 +262,7 @@ if xml_file and img_file:
                         html += `<tr><td>${{c}}</td><td>${{tam}}</td><td class="text-end"><b>${{groups[t][sk]}}</b> pz</td></tr>`;
                     }}
                     html += '</tbody></table>';
-                }
+                }}
                 container.innerHTML = html;
             }}
 
@@ -277,10 +274,11 @@ if xml_file and img_file:
 
     st.divider()
     st.download_button(
-        label="📥 DESCARGAR REPORTE: RECONSTRUIDO CON FILTROS Y TOOLTIP",
+        label="📥 DESCARGAR REPORTE CORREGIDO",
         data=html_report,
         file_name=f"Reporte_{nombre_modelo}.html",
         mime="text/html"
     )
+
 
 
