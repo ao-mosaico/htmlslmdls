@@ -1,7 +1,6 @@
 import streamlit as st
 import xml.etree.ElementTree as ET
 import pandas as pd
-import plotly.graph_objects as go
 from PIL import Image
 import base64
 import json
@@ -75,15 +74,15 @@ if xml_file and img_file:
     img_base64 = base64.b64encode(buffered.getvalue()).decode()
     data_uri = f"data:image/{img_format.lower()};base64,{img_base64}"
 
-    # --- Vista Previa App (Plotly se queda solo para la web) ---
     st.subheader(f"Modelo: {nombre_modelo if nombre_modelo else 'Sin nombre'}")
-    st.info("💡 Tip: El reporte descargable tendrá un zoom mucho más fluido para tu celular.")
+    st.success("✅ Datos procesados. Descarga el reporte para visualizar con zoom táctil profesional.")
     
-    # Preparación datos para el Visor Pro (HTML)
+    # Preparación datos
     puntos_json = df.to_json(orient='records')
     tipos_unicos = sorted(df["tipo"].unique().tolist())
     colores_unicos = sorted(df["color_norm"].unique().tolist())
 
+    # HTML con ESCAPE DE LLAVES ({{ y }})
     html_report = f"""
     <!DOCTYPE html>
     <html>
@@ -95,32 +94,16 @@ if xml_file and img_file:
         <style>
             body {{ background-color: #f0f2f5; font-family: sans-serif; margin: 0; padding: 10px; }}
             .header {{ background: #2c3e50; color: white; padding: 20px; border-radius: 12px; text-align: center; margin-bottom: 15px; }}
-            #viewer-container {{ 
-                width: 100%; 
-                height: 65vh; 
-                background: #333; 
-                border-radius: 12px; 
-                position: relative;
-                box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-            }}
+            #viewer-container {{ width: 100%; height: 60vh; background: #333; border-radius: 12px; position: relative; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }}
             .filter-card {{ background: white; padding: 15px; border-radius: 12px; margin-bottom: 15px; }}
             .btn-filter {{ border-radius: 20px; font-size: 11px; margin: 2px; text-transform: uppercase; }}
-            .summary-card {{ background: white; padding: 15px; border-radius: 12px; }}
-            /* Estilo de los puntos sobre la imagen */
-            .dot {{ 
-                position: absolute; 
-                width: 10px; height: 10px; 
-                border-radius: 50%; 
-                border: 1px solid white; 
-                transform: translate(-50%, -50%);
-                pointer-events: none;
-            }}
+            .dot {{ position: absolute; width: 8px; height: 8px; border-radius: 50%; border: 1px solid white; transform: translate(-50%, -50%); pointer-events: none; }}
         </style>
     </head>
     <body>
         <div class="header">
             <h1 style="font-size: 1.4rem; margin: 0;">REPORTE DE COMPONENTES</h1>
-            <div style="color: #3498db; font-weight: bold;">{nombre_modelo.upper() if nombre_modelo else 'MOSAICO'}</div>
+            <div style="color: #3498db; font-weight: bold;">{nombre_modelo.upper() if nombre_modelo else 'SIN NOMBRE'}</div>
         </div>
 
         <div class="filter-card">
@@ -138,7 +121,7 @@ if xml_file and img_file:
 
         <div id="viewer-container"></div>
 
-        <div class="summary-card mt-3">
+        <div class="filter-card mt-3">
             <div id="tables-output"></div>
             <div class="text-end h5 mt-3 text-primary" id="total-text"></div>
         </div>
@@ -150,7 +133,6 @@ if xml_file and img_file:
             let filterT = 'all';
             let filterC = 'all';
 
-            // Inicializar Visor Pro
             const viewer = OpenSeadragon({{
                 id: "viewer-container",
                 prefixUrl: "https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/images/",
@@ -158,22 +140,14 @@ if xml_file and img_file:
                     type: 'image',
                     url: '{data_uri}'
                 }},
-                gestureSettingsTouch: {{
-                    pinchRotate: true,
-                    scrollToZoom: true
-                }},
+                gestureSettingsTouch: {{ pinchRotate: true, scrollToZoom: true }},
                 showNavigationControl: false,
-                defaultZoomLevel: 1,
-                minZoomLevel: 0.5
+                defaultZoomLevel: 0,
+                minZoomLevel: 0,
+                visibilityRatio: 1,
+                constrainDuringPan: true
             }});
 
-            const overlay = viewer.canvasOverlay({{
-                onRedraw: function() {{
-                    // Aquí dibujaremos los puntos si necesitamos máxima performance
-                }}
-            }});
-
-            // Función para dibujar puntos de forma nativa en el visor
             function drawPoints() {{
                 viewer.clearOverlays();
                 const filtered = puntos.filter(p => {{
@@ -186,7 +160,6 @@ if xml_file and img_file:
                     const elt = document.createElement("div");
                     elt.className = "dot";
                     elt.style.backgroundColor = p.color_plot;
-                    // OpenSeadragon usa coordenadas normalizadas (0 a 1)
                     viewer.addOverlay({{
                         element: elt,
                         location: new OpenSeadragon.Point(p.x / imgW, p.y / imgW)
@@ -223,14 +196,14 @@ if xml_file and img_file:
                 let html = '';
                 for(const t in groups) {{
                     html += `<div class="mt-2"><strong>${{t.toUpperCase()}}</strong></div>
-                             <table class="table table-sm" style="font-size: 12px;">
+                             <table class="table table-sm" style="font-size: 11px;">
                              <thead><tr><th>Color</th><th>Tam.</th><th>Cant.</th></tr></thead><tbody>`;
                     for(const sk in groups[t]) {{
                         const [c, tam] = sk.split('|');
                         html += `<tr><td>${{c}}</td><td>${{tam}}</td><td>${{groups[t][sk]}}</td></tr>`;
                     }}
                     html += '</tbody></table>';
-                }
+                }}
                 container.innerHTML = html;
                 document.getElementById('total-text').innerText = 'Piezas: ' + data.length;
             }}
@@ -243,12 +216,12 @@ if xml_file and img_file:
 
     st.divider()
     st.download_button(
-        label="📥 DESCARGAR REPORTE PARA MÓVIL",
+        label="📥 DESCARGAR REPORTE TÁCTIL",
         data=html_report,
         file_name=f"Reporte_{nombre_modelo}.html",
         mime="text/html"
     )
 else:
-    st.info("Sube el XML y la Imagen para generar el nuevo reporte optimizado.")
+    st.info("Sube los archivos para generar el reporte optimizado para celulares.")
 
 
