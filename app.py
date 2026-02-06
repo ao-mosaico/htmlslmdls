@@ -90,13 +90,16 @@ if xml_file and img_file:
             #viewer-container {{ width: 100%; height: 60vh; background: #333; border-radius: 12px; position: relative; }}
             .filter-card {{ background: white; padding: 15px; border-radius: 12px; margin-bottom: 15px; }}
             .btn-filter {{ border-radius: 20px; font-size: 11px; margin: 2px; text-transform: uppercase; }}
+            
+            /* CORRECCIÓN CRÍTICA: Eliminado 'transform: translate' para evitar doble centrado */
             .dot {{ 
                 position: absolute; width: 14px; height: 14px; 
                 border-radius: 50%; border: 1.5px solid white; 
-                transform: translate(-50%, -50%); 
                 cursor: pointer; pointer-events: auto; z-index: 10;
                 box-shadow: 0 0 3px rgba(0,0,0,0.5);
+                /* IMPORTANTE: No usar transform aquí, OpenSeadragon ya centra el elemento */
             }}
+            
             .osd-tooltip {{
                 position: absolute; background: rgba(0,0,0,0.9); color: white;
                 padding: 6px 12px; border-radius: 6px; font-size: 12px;
@@ -147,7 +150,6 @@ if xml_file and img_file:
                 }},
                 gestureSettingsTouch: {{ pinchRotate: false }},
                 showNavigationControl: false,
-                // CONFIGURACIÓN DE ESCALA REAL
                 defaultZoomLevel: 0,
                 minZoomLevel: 0,
                 visibilityRatio: 1,
@@ -180,10 +182,9 @@ if xml_file and img_file:
                     elt.ontouchstart = (e) => showInfo(e);
                     elt.onmouseout = () => tooltip.style.display = 'none';
 
-                    // LA CORRECCIÓN MATEMÁTICA:
-                    // OpenSeadragon usa una escala donde el ancho de la imagen es 1.0.
-                    // Por lo tanto, la coordenada X es p.x / imgW.
-                    // Y la coordenada Y TAMBIÉN debe dividirse por imgW para mantener la proporción.
+                    // PRECISION FINAL:
+                    // Usamos la coordenada normalizada (x/ancho, y/ancho)
+                    // Y dejamos que 'Placement.CENTER' haga el trabajo sucio sin interferencia CSS.
                     viewer.addOverlay({{
                         element: elt,
                         location: new OpenSeadragon.Point(p.x / imgW, p.y / imgW),
@@ -235,8 +236,9 @@ if xml_file and img_file:
 
     st.divider()
     st.download_button(
-        label="📥 DESCARGAR REPORTE: PRECISIÓN PB-8612 A",
+        label="📥 DESCARGAR REPORTE: AJUSTE FINAL CSS",
         data=html_report,
         file_name=f"Reporte_{nombre_modelo}.html",
         mime="text/html"
     )
+
