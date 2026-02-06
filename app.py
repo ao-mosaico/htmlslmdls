@@ -59,23 +59,12 @@ if xml_file and img_file:
                 rows.append({
                     "x": x, "y": y, "tipo": tipo, 
                     "color_norm": normalizar_color(attrs.get("color", "")), 
-                    "tamaño": attrs.get("tamaño", "")
+                    "tamaño": attrs.get("tamaño", ""),
+                    "color_plot": COLOR_CATALOG.get(normalizar_color(attrs.get("color", "")), "gray")
                 })
     
     df = pd.DataFrame(rows)
     df["color_norm"] = df.apply(ajustar_color_por_tipo, axis=1)
-    df["color_plot"] = df["color_norm"].map(COLOR_CATALOG).fillna("gray")
-
-    # --- Filtros en la App ---
-    st.subheader(f"Modelo: {nombre_modelo if nombre_modelo else 'Sin nombre'}")
-    
-    col_f1, col_f2 = st.columns(2)
-    with col_f1:
-        tipo_filtro = st.multiselect("Filtrar por Tipo (App)", options=sorted(df["tipo"].unique()), default=sorted(df["tipo"].unique()))
-    with col_f2:
-        color_filtro = st.multiselect("Filtrar por Color (App)", options=sorted(df["color_norm"].unique()), default=sorted(df["color_norm"].unique()))
-
-    df_app = df[(df["tipo"].isin(tipo_filtro)) & (df["color_norm"].isin(color_filtro))]
 
     # --- Imagen Base64 ---
     img = Image.open(img_file)
@@ -86,172 +75,167 @@ if xml_file and img_file:
     img_base64 = base64.b64encode(buffered.getvalue()).decode()
     data_uri = f"data:image/{img_format.lower()};base64,{img_base64}"
 
-    # --- Gráfico Principal (Vista App) ---
-    fig = go.Figure()
-    for (t, c, tam), d_sub in df_app.groupby(["tipo", "color_norm", "tamaño"]):
-        fig.add_trace(go.Scatter(
-            x=d_sub["x"].tolist(), y=d_sub["y"].tolist(), mode="markers",
-            marker=dict(color=d_sub["color_plot"].iloc[0], size=8, opacity=0.8, line=dict(width=1, color='white')),
-            name=f"{t} {c} {tam}",
-            customdata=[{"tipo": t, "color": c}] * len(d_sub),
-            hovertemplate=f"<b>{t}</b><br>{c} {tam}<extra></extra>"
-        ))
+    # --- Vista Previa App (Plotly se queda solo para la web) ---
+    st.subheader(f"Modelo: {nombre_modelo if nombre_modelo else 'Sin nombre'}")
+    st.info("💡 Tip: El reporte descargable tendrá un zoom mucho más fluido para tu celular.")
     
-    fig.add_layout_image(dict(source=data_uri, x=0, y=0, sizex=width, sizey=height, xref="x", yref="y", sizing="stretch", layer="below"))
-    fig.update_layout(
-        dragmode="pan", 
-        margin=dict(l=0, r=0, t=0, b=0), 
-        xaxis=dict(range=[0, width], visible=False, scaleanchor="y"), 
-        yaxis=dict(range=[height, 0], visible=False)
-    )
-
-    st.plotly_chart(fig, use_container_width=True)
-
-    # --- Tablas de Resumen en la App ---
-    st.markdown("### 📊 Resumen de Materiales (App)")
-    if not df_app.empty:
-        conteo_app = df_app.groupby(["tipo", "color_norm", "tamaño"]).size().reset_index(name="Cant")
-        for t in conteo_app["tipo"].unique():
-            with st.expander(f"Detalle {t.upper()}", expanded=True):
-                st.table(conteo_app[conteo_app["tipo"] == t][["color_norm", "tamaño", "Cant"]])
-        st.metric("Total de piezas visibles", len(df_app))
-
-    # --- Preparación HTML ---
-    traces_json = json.dumps([t.to_plotly_json() for t in fig.data])
-    layout_json = fig.layout.to_json()
+    # Preparación datos para el Visor Pro (HTML)
+    puntos_json = df.to_json(orient='records')
     tipos_unicos = sorted(df["tipo"].unique().tolist())
     colores_unicos = sorted(df["color_norm"].unique().tolist())
-    conteo_json = df.groupby(["tipo", "color_norm", "tamaño"]).size().reset_index(name="Cant").to_json(orient='records')
 
     html_report = f"""
     <!DOCTYPE html>
     <html>
     <head>
-        <title>Reporte de Componentes</title>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+        <title>Reporte Pro: {nombre_modelo}</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-        <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/openseadragon.min.js"></script>
         <style>
-            body {{ background-color: #f8f9fa; padding: 10px; font-family: 'Segoe UI', sans-serif; overflow-x: hidden; }}
-            .header-box {{ background: #2c3e50; color: white; padding: 25px; border-radius: 10px; margin-bottom: 20px; }}
-            #plot-area {{ 
+            body {{ background-color: #f0f2f5; font-family: sans-serif; margin: 0; padding: 10px; }}
+            .header {{ background: #2c3e50; color: white; padding: 20px; border-radius: 12px; text-align: center; margin-bottom: 15px; }}
+            #viewer-container {{ 
                 width: 100%; 
-                height: 70vh; 
-                background: #fff; 
-                border-radius: 10px; 
-                box-shadow: 0 4px 15px rgba(0,0,0,0.1); 
-                overflow: hidden;
-                touch-action: none;
+                height: 65vh; 
+                background: #333; 
+                border-radius: 12px; 
+                position: relative;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.2);
             }}
-            .filter-section {{ background: white; padding: 15px; border-radius: 10px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }}
-            .filter-label {{ font-weight: bold; font-size: 0.75rem; text-transform: uppercase; color: #666; margin-bottom: 8px; display: block; }}
-            .summary-card {{ background: white; border-radius: 10px; padding: 15px; margin-top: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }}
-            .btn-filter {{ margin: 2px; font-size: 0.7rem; border-radius: 20px; padding: 5px 15px; transition: 0.3s; }}
-            .table {{ font-size: 0.8rem; }}
+            .filter-card {{ background: white; padding: 15px; border-radius: 12px; margin-bottom: 15px; }}
+            .btn-filter {{ border-radius: 20px; font-size: 11px; margin: 2px; text-transform: uppercase; }}
+            .summary-card {{ background: white; padding: 15px; border-radius: 12px; }}
+            /* Estilo de los puntos sobre la imagen */
+            .dot {{ 
+                position: absolute; 
+                width: 10px; height: 10px; 
+                border-radius: 50%; 
+                border: 1px solid white; 
+                transform: translate(-50%, -50%);
+                pointer-events: none;
+            }}
         </style>
     </head>
     <body>
-        <div class="container-fluid">
-            <div class="header-box text-center">
-                <h1 class="display-6 mb-1" style="font-weight: bold; font-size: 1.5rem;">REPORTE DE COMPONENTES</h1>
-                <h3 class="text-info mb-0" style="font-size: 1.1rem;">{nombre_modelo.upper() if nombre_modelo else 'SIN NOMBRE'}</h3>
+        <div class="header">
+            <h1 style="font-size: 1.4rem; margin: 0;">REPORTE DE COMPONENTES</h1>
+            <div style="color: #3498db; font-weight: bold;">{nombre_modelo.upper() if nombre_modelo else 'MOSAICO'}</div>
+        </div>
+
+        <div class="filter-card">
+            <small class="text-muted d-block mb-2">COMPONENTES:</small>
+            <div id="tipo-filters">
+                <button class="btn btn-primary btn-sm btn-filter" onclick="updateFilters('tipo', 'all', this)">TODOS</button>
+                {' '.join([f'<button class="btn btn-outline-primary btn-sm btn-filter" onclick="updateFilters(\'tipo\', \'{t}\', this)">{t}</button>' for t in tipos_unicos])}
             </div>
-
-            <div class="filter-section">
-                <span class="filter-label">Filtrar por Componente:</span>
-                <div id="tipo-filters" class="d-flex flex-wrap">
-                    <button id="btn-tipo-all" class="btn btn-primary btn-sm btn-filter" onclick="filterData('tipo', 'all', this)">TODOS</button>
-                    {' '.join([f'<button class="btn btn-outline-primary btn-sm btn-filter" onclick="filterData(\'tipo\', \'{t}\', this)">{t.upper()}</button>' for t in tipos_unicos])}
-                </div>
-                <span class="filter-label mt-3">Filtrar por Color:</span>
-                <div id="color-filters" class="d-flex flex-wrap">
-                    <button id="btn-color-all" class="btn btn-success btn-sm btn-filter" onclick="filterData('color', 'all', this)">TODOS</button>
-                    {' '.join([f'<button class="btn btn-outline-success btn-sm btn-filter" onclick="filterData(\'color\', \'{c}\', this)">{c.upper()}</button>' for c in colores_unicos])}
-                </div>
-            </div>
-
-            <div id="plot-area"></div>
-
-            <div class="summary-card">
-                <h5 class="border-bottom pb-2">📋 Resumen de Materiales</h5>
-                <div id="tables-container"></div>
-                <hr>
-                <h4 class="text-end text-primary" id="total-val">Total: {len(df)}</h4>
+            <small class="text-muted d-block mt-3 mb-2">COLORES:</small>
+            <div id="color-filters">
+                <button class="btn btn-success btn-sm btn-filter" onclick="updateFilters('color', 'all', this)">TODOS</button>
+                {' '.join([f'<button class="btn btn-outline-success btn-sm btn-filter" onclick="updateFilters(\'color\', \'{c}\', this)">{c}</button>' for c in colores_unicos])}
             </div>
         </div>
 
+        <div id="viewer-container"></div>
+
+        <div class="summary-card mt-3">
+            <div id="tables-output"></div>
+            <div class="text-end h5 mt-3 text-primary" id="total-text"></div>
+        </div>
+
         <script>
-            const fullTraces = {traces_json};
-            const layout = {layout_json};
-            const tableData = {conteo_json};
-            const config = {{ 
-                responsive: true, 
-                scrollZoom: true, 
-                displayModeBar: false,
-                doubleClick: 'reset+autosize'
-            }};
-            
-            layout.dragmode = 'pan';
-            let currentType = 'all';
-            let currentColor = 'all';
+            const puntos = {puntos_json};
+            const imgW = {width};
+            const imgH = {height};
+            let filterT = 'all';
+            let filterC = 'all';
 
-            Plotly.newPlot('plot-area', fullTraces, layout, config);
+            // Inicializar Visor Pro
+            const viewer = OpenSeadragon({{
+                id: "viewer-container",
+                prefixUrl: "https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/images/",
+                tileSources: {{
+                    type: 'image',
+                    url: '{data_uri}'
+                }},
+                gestureSettingsTouch: {{
+                    pinchRotate: true,
+                    scrollToZoom: true
+                }},
+                showNavigationControl: false,
+                defaultZoomLevel: 1,
+                minZoomLevel: 0.5
+            }});
 
-            function filterData(mode, val, btn) {{
+            const overlay = viewer.canvasOverlay({{
+                onRedraw: function() {{
+                    // Aquí dibujaremos los puntos si necesitamos máxima performance
+                }}
+            }});
+
+            // Función para dibujar puntos de forma nativa en el visor
+            function drawPoints() {{
+                viewer.clearOverlays();
+                const filtered = puntos.filter(p => {{
+                    const mt = (filterT === 'all' || p.tipo === filterT);
+                    const mc = (filterC === 'all' || p.color_norm === filterC);
+                    return mt && mc;
+                }});
+
+                filtered.forEach(p => {{
+                    const elt = document.createElement("div");
+                    elt.className = "dot";
+                    elt.style.backgroundColor = p.color_plot;
+                    // OpenSeadragon usa coordenadas normalizadas (0 a 1)
+                    viewer.addOverlay({{
+                        element: elt,
+                        location: new OpenSeadragon.Point(p.x / imgW, p.y / imgW)
+                    }});
+                }});
+                renderTables(filtered);
+            }}
+
+            function updateFilters(mode, val, btn) {{
                 const parent = btn.parentElement;
-                const buttons = parent.querySelectorAll('.btn-filter');
                 const activeClass = mode === 'tipo' ? 'btn-primary' : 'btn-success';
                 const outlineClass = mode === 'tipo' ? 'btn-outline-primary' : 'btn-outline-success';
-
-                buttons.forEach(b => {{ b.classList.remove(activeClass); b.classList.add(outlineClass); }});
-                btn.classList.remove(outlineClass);
-                btn.classList.add(activeClass);
-
-                if(mode === 'tipo') currentType = val;
-                if(mode === 'color') currentColor = val;
-
-                fullTraces.forEach(trace => {{
-                    const tData = trace.customdata[0];
-                    const matchT = (currentType === 'all' || tData.tipo.toLowerCase() === currentType.toLowerCase());
-                    const matchC = (currentColor === 'all' || tData.color.toLowerCase() === currentColor.toLowerCase());
-                    trace.visible = (matchT && matchC) ? true : 'legendonly';
-                }});
                 
-                Plotly.react('plot-area', fullTraces, layout, config);
-                renderTables();
+                parent.querySelectorAll('.btn').forEach(b => {{
+                    b.classList.remove(activeClass); b.classList.add(outlineClass);
+                }});
+                btn.classList.add(activeClass); btn.classList.remove(outlineClass);
+
+                if(mode === 'tipo') filterT = val;
+                else filterC = val;
+                drawPoints();
             }}
 
-            function renderTables() {{
-                const container = document.getElementById('tables-container');
-                const filtered = tableData.filter(d => {{
-                    const matchT = (currentType === 'all' || d.tipo === currentType);
-                    const matchC = (currentColor === 'all' || d.color_norm === currentColor);
-                    return matchT && matchC;
-                }});
-                
-                const total = filtered.reduce((acc, curr) => acc + curr.Cant, 0);
-                let html = '';
+            function renderTables(data) {{
+                const container = document.getElementById('tables-output');
                 const groups = {{}};
-                filtered.forEach(d => {{
-                    if (!groups[d.tipo]) groups[d.tipo] = [];
-                    groups[d.tipo].push(d);
+                data.forEach(p => {{
+                    const key = p.tipo;
+                    if(!groups[key]) groups[key] = {{}};
+                    const subKey = p.color_norm + '|' + p.tamaño;
+                    groups[key][subKey] = (groups[key][subKey] || 0) + 1;
                 }});
 
-                for (const t in groups) {{
-                    const subTotal = groups[t].reduce((a, b) => a + b.Cant, 0);
-                    html += `<div class="mt-3"><b>${{t.toUpperCase()}}</b> <span class="badge bg-secondary">${{subTotal}} pz</span></div>
-                            <table class="table table-hover table-sm">
-                                <thead><tr><th>Color</th><th>Tam.</th><th>Cant.</th></tr></thead>
-                                <tbody>`;
-                    groups[t].forEach(row => {{
-                        html += `<tr><td>${{row.color_norm}}</td><td>${{row.tamaño}}</td><td>${{row.Cant}}</td></tr>`;
-                    }});
-                    html += `</tbody></table>`;
-                }}
-                container.innerHTML = html || '<p class="text-muted text-center py-3">No hay elementos.</p>';
-                document.getElementById('total-val').innerText = 'Total Visible: ' + total;
+                let html = '';
+                for(const t in groups) {{
+                    html += `<div class="mt-2"><strong>${{t.toUpperCase()}}</strong></div>
+                             <table class="table table-sm" style="font-size: 12px;">
+                             <thead><tr><th>Color</th><th>Tam.</th><th>Cant.</th></tr></thead><tbody>`;
+                    for(const sk in groups[t]) {{
+                        const [c, tam] = sk.split('|');
+                        html += `<tr><td>${{c}}</td><td>${{tam}}</td><td>${{groups[t][sk]}}</td></tr>`;
+                    }}
+                    html += '</tbody></table>';
+                }
+                container.innerHTML = html;
+                document.getElementById('total-text').innerText = 'Piezas: ' + data.length;
             }}
-            renderTables();
+
+            viewer.addHandler('open', drawPoints);
         </script>
     </body>
     </html>
@@ -259,13 +243,12 @@ if xml_file and img_file:
 
     st.divider()
     st.download_button(
-        label=f"📥 DESCARGAR REPORTE: {nombre_modelo if nombre_modelo else 'MOSAICO'}",
+        label="📥 DESCARGAR REPORTE PARA MÓVIL",
         data=html_report,
-        file_name=f"Reporte_{nombre_modelo if nombre_modelo else 'Mosaico'}.html",
+        file_name=f"Reporte_{nombre_modelo}.html",
         mime="text/html"
     )
-
 else:
-    st.info("Sube los archivos para comenzar. El reporte final dirá 'REPORTE DE COMPONENTES' seguido del nombre del modelo.")
+    st.info("Sube el XML y la Imagen para generar el nuevo reporte optimizado.")
 
 
