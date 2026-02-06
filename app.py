@@ -75,71 +75,68 @@ if xml_file and img_file:
     tipos_unicos = sorted(df["tipo"].unique().tolist())
     colores_unicos = sorted(df["color_norm"].unique().tolist())
 
-    # SE USAN DOBLES LLAVES {{ }} PARA CSS Y JS PORQUE ESTAMOS DENTRO DE UN F-STRING
     html_report = f"""
     <!DOCTYPE html>
     <html>
     <head>
-        <title>Reporte Pro: {nombre_modelo}</title>
+        <title>Reporte: {nombre_modelo}</title>
         <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=10.0, user-scalable=yes">
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
         <script src="https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/openseadragon.min.js"></script>
         <style>
-            body {{ background-color: #f8f9fa; font-family: sans-serif; margin: 0; padding: 10px; }}
+            body {{ background-color: #f8f9fa; margin: 0; padding: 10px; }}
             .header {{ background: #2c3e50; color: white; padding: 15px; border-radius: 12px; text-align: center; margin-bottom: 10px; }}
-            #viewer-container {{ width: 100%; height: 70vh; background: #222; border-radius: 12px; position: relative; border: 2px solid #ddd; }}
+            
+            /* Contenedor del Visor */
+            #viewer-wrapper {{ position: relative; width: 100%; height: 70vh; border-radius: 12px; overflow: hidden; border: 2px solid #ddd; }}
+            #viewer-container {{ width: 100%; height: 100%; background: #222; }}
+            
             .filter-card {{ background: white; padding: 12px; border-radius: 12px; margin-bottom: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }}
             
-            .dot {{ 
-                width: 10px; height: 10px; 
-                border-radius: 50%; border: 1px solid white; 
-                cursor: pointer; box-sizing: border-box; 
-            }}
-            .dot.active {{
-                border: 2px solid #fff;
-                box-shadow: 0 0 10px #ffeb3b, 0 0 5px #ffeb3b inset;
-                transform: scale(1.6);
-            }}
+            .dot {{ width: 10px; height: 10px; border-radius: 50%; border: 1px solid white; cursor: pointer; }}
+            .dot.active {{ border: 2px solid #fff; box-shadow: 0 0 10px #ffeb3b, 0 0 5px #ffeb3b inset; transform: scale(1.6); }}
 
+            /* TOOLTIP POSICIONADO DENTRO DEL CONTENEDOR */
             #floating-info {{
-                position: fixed;
+                position: absolute;
                 background: rgba(0, 0, 0, 0.95);
                 color: #fff;
-                padding: 10px 14px;
-                border-radius: 8px;
-                font-size: 13px;
+                padding: 8px 12px;
+                border-radius: 6px;
+                font-size: 12px;
                 display: none;
-                z-index: 10000;
+                z-index: 1000;
                 pointer-events: none;
                 border: 1px solid #ffeb3b;
-                box-shadow: 0 5px 25px rgba(0,0,0,0.7);
                 text-align: center;
-                min-width: 140px;
+                white-space: nowrap;
             }}
-            #floating-info b {{ color: #3498db; text-transform: uppercase; }}
+            .total-banner {{ background: #e3f2fd; border: 2px solid #2196f3; color: #0d47a1; padding: 10px; border-radius: 8px; font-weight: bold; text-align: center; margin-top: 15px; }}
         </style>
     </head>
     <body>
-        <div id="floating-info"></div>
-        
         <div class="header">
-            <h2 style="font-size: 1.2rem; margin: 0;">{nombre_modelo.upper() if nombre_modelo else 'REPORTE DE PIEZA'}</h2>
+            <h2 style="font-size: 1.1rem; margin: 0;">REPORTE: {nombre_modelo.upper() if nombre_modelo else 'SIN NOMBRE'}</h2>
         </div>
 
         <div class="filter-card">
             <div class="mb-2">
-                <small class="text-muted d-block mb-1">FILTRAR POR TIPO:</small>
-                <button class="btn btn-primary btn-sm rounded-pill px-3" style="font-size:10px;" onclick="updateFilters('tipo', 'all', this)">TODOS</button>
-                {' '.join([f'<button class="btn btn-outline-primary btn-sm rounded-pill px-3" style="font-size:10px; margin:2px;" onclick="updateFilters(\'tipo\', \'{t}\', this)">{t}</button>' for t in tipos_unicos])}
+                <small class="text-muted d-block mb-1">TIPO:</small>
+                <button class="btn btn-primary btn-sm rounded-pill" onclick="updateFilters('tipo', 'all', this)">TODOS</button>
+                {' '.join([f'<button class="btn btn-outline-primary btn-sm rounded-pill mx-1" onclick="updateFilters(\'tipo\', \'{t}\', this)">{t}</button>' for t in tipos_unicos])}
             </div>
             <div>
-                <small class="text-muted d-block mb-1">FILTRAR POR COLOR:</small>
-                <button class="btn btn-success btn-sm rounded-pill px-3" style="font-size:10px;" onclick="updateFilters('color', 'all', this)">TODOS</button>
-                {' '.join([f'<button class="btn btn-outline-success btn-sm rounded-pill px-3" style="font-size:10px; margin:2px;" onclick="updateFilters(\'color\', \'{c}\', this)">{c}</button>' for c in colores_unicos])}
+                <small class="text-muted d-block mb-1">COLOR:</small>
+                <button class="btn btn-success btn-sm rounded-pill" onclick="updateFilters('color', 'all', this)">TODOS</button>
+                {' '.join([f'<button class="btn btn-outline-success btn-sm rounded-pill mx-1" onclick="updateFilters(\'color\', \'{c}\', this)">{c}</button>' for c in colores_unicos])}
             </div>
         </div>
 
-        <div id="viewer-container"></div>
+        <div id="viewer-wrapper">
+            <div id="viewer-container"></div>
+            <div id="floating-info"></div>
+        </div>
+
         <div class="filter-card mt-3" id="tables-output"></div>
 
         <script>
@@ -160,7 +157,7 @@ if xml_file and img_file:
                 gestureSettingsTouch: {{ clickToZoom: false, dblClickToZoom: true }},
                 gestureSettingsMouse: {{ clickToZoom: false }},
                 showNavigationControl: false,
-                maxZoomLevel: 50,
+                maxZoomLevel: 60,
                 detectRetina: false
             }});
 
@@ -183,7 +180,10 @@ if xml_file and img_file:
                         elt.classList.add('active');
                         currentSelectedDot = elt;
                         currentPointData = p;
-                        showTooltip(p);
+                        
+                        tooltip.style.display = 'block';
+                        tooltip.innerHTML = `<b>${{p.tipo.toUpperCase()}}</b><br>${{p.color_norm}}<br>${{p.tamaño}}`;
+                        updateTooltipPos();
                     }};
 
                     elt.addEventListener('click', handleAction);
@@ -198,49 +198,34 @@ if xml_file and img_file:
                 renderTables(filtered);
             }}
 
-            function showTooltip(data) {{
-                tooltip.style.display = 'block';
-                tooltip.innerHTML = `<b>${{data.tipo}}</b><br>${{data.color_norm}}<br>${{data.tamaño}}`;
-                updateTooltipPos();
-            }}
-
             function updateTooltipPos() {{
                 if (!currentSelectedDot || !currentPointData) return;
                 
+                // Cálculo de píxeles relativo al CONTENEDOR del visor, no a la pantalla
                 const viewportPoint = new OpenSeadragon.Point(currentPointData.x / imgW, currentPointData.y / imgW);
                 const pixel = viewer.viewport.pixelFromPoint(viewportPoint, true);
-                const containerRect = document.getElementById('viewer-container').getBoundingClientRect();
 
-                const x = pixel.x + containerRect.left - (tooltip.offsetWidth / 2);
-                const y = pixel.y + containerRect.top - tooltip.offsetHeight - 20;
-
-                tooltip.style.left = x + 'px';
-                tooltip.style.top = y + 'px';
+                tooltip.style.left = (pixel.x - tooltip.offsetWidth / 2) + 'px';
+                tooltip.style.top = (pixel.y - tooltip.offsetHeight - 15) + 'px';
             }}
 
+            // Eventos para que el cuadro siga al zoom/movimiento
             viewer.addHandler('animation', updateTooltipPos);
             viewer.addHandler('canvas-drag', updateTooltipPos);
             viewer.addHandler('canvas-scroll', updateTooltipPos);
-
             viewer.addHandler('canvas-click', () => {{
                 tooltip.style.display = 'none';
                 if (currentSelectedDot) currentSelectedDot.classList.remove('active');
                 currentSelectedDot = null;
-                currentPointData = null;
             }});
 
             function updateFilters(mode, val, btn) {{
                 const parent = btn.parentElement;
-                const activeClass = mode === 'tipo' ? 'btn-primary' : 'btn-success';
-                const outlineClass = mode === 'tipo' ? 'btn-outline-primary' : 'btn-outline-success';
-                
-                parent.querySelectorAll('.btn').forEach(b => {{ 
-                    b.classList.remove(activeClass); b.classList.add(outlineClass); 
-                }});
-                btn.classList.add(activeClass); btn.classList.remove(outlineClass);
-                
+                const activeC = mode === 'tipo' ? 'btn-primary' : 'btn-success';
+                const outlineC = mode === 'tipo' ? 'btn-outline-primary' : 'btn-outline-success';
+                parent.querySelectorAll('.btn').forEach(b => {{ b.classList.remove(activeC); b.classList.add(outlineC); }});
+                btn.classList.add(activeC); btn.classList.remove(outlineC);
                 if (mode === 'tipo') filterT = val; else filterC = val;
-                
                 tooltip.style.display = 'none';
                 drawPoints();
             }}
@@ -248,21 +233,28 @@ if xml_file and img_file:
             function renderTables(data) {{
                 const container = document.getElementById('tables-output');
                 const groups = {{}};
+                let granTotal = 0;
+
                 data.forEach(p => {{
+                    granTotal++;
                     if(!groups[p.tipo]) groups[p.tipo] = {{}};
                     const key = p.color_norm + '|' + p.tamaño;
                     groups[p.tipo][key] = (groups[p.tipo][key] || 0) + 1;
                 }});
+
                 let html = '<h6 class="text-primary border-bottom pb-2">RESUMEN DE MATERIALES</h6>';
                 for(const t in groups) {{
                     html += `<div class="mt-2 small"><strong>${{t.toUpperCase()}}</strong></div>
-                             <table class="table table-sm table-striped" style="font-size: 10px;"><tbody>`;
+                             <table class="table table-sm table-striped mb-0" style="font-size: 10px;"><tbody>`;
                     for(const sk in groups[t]) {{
                         const [c, tam] = sk.split('|');
                         html += `<tr><td>${{c}}</td><td>${{tam}}</td><td class="text-end"><b>${{groups[t][sk]}}</b> pz</td></tr>`;
                     }}
                     html += '</tbody></table>';
                 }}
+                
+                // EL TOTAL GENERAL SOLICITADO
+                html += `<div class="total-banner">TOTAL DE COMPONENTES: ${{granTotal}} PIEZAS</div>`;
                 container.innerHTML = html;
             }}
 
@@ -274,7 +266,7 @@ if xml_file and img_file:
 
     st.divider()
     st.download_button(
-        label="📥 DESCARGAR REPORTE CORREGIDO",
+        label="📥 DESCARGAR REPORTE CON TOTALES Y CAJAS FIJAS",
         data=html_report,
         file_name=f"Reporte_{nombre_modelo}.html",
         mime="text/html"
