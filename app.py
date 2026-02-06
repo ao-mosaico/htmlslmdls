@@ -6,7 +6,7 @@ import base64
 from io import BytesIO
 
 # =========================================================
-# CONFIGURACIÓN Y CATÁLOGO
+# CONFIGURACIÓN Y CATÁLOGO (Manteniendo tus labels)
 # =========================================================
 st.set_page_config(page_title="Gestor de Mosaicos Pro", layout="wide")
 
@@ -46,7 +46,7 @@ def ajustar_color_por_tipo(row):
     return color
 
 # =========================================================
-# LÓGICA DE CARGA
+# PROCESAMIENTO
 # =========================================================
 st.sidebar.title("💎 Panel de Control")
 nombre_modelo = st.sidebar.text_input("Nombre del Modelo", placeholder="Ej: PB-8612 A")
@@ -88,7 +88,7 @@ if xml_file and img_file:
     titulo_final = f"Componentes {nombre_modelo}" if nombre_modelo else "Componentes"
 
     # =========================================================
-    # REPORTE HTML CON TABLAS INTERACTIVAS Y BANNER DINÁMICO
+    # REPORTE HTML (Con corrección de contraste dinámico)
     # =========================================================
     html_report = f"""
     <!DOCTYPE html>
@@ -104,16 +104,17 @@ if xml_file and img_file:
             
             #info-bar {{
                 position: -webkit-sticky; position: sticky; top: 0; z-index: 2000;
-                background: #e0f2f1; color: #2c3e50; padding: 12px; text-align: center;
-                font-weight: bold; border-bottom: 2px solid #1abc9c; font-size: 16px;
-                transition: all 0.3s ease; min-height: 50px;
+                background: #f8f9fa; color: #2c3e50; padding: 12px; text-align: center;
+                font-weight: bold; border-bottom: 3px solid #1abc9c; font-size: 18px;
+                transition: all 0.3s ease; min-height: 54px;
+                text-shadow: 0px 1px 2px rgba(255,255,255,0.3); /* Mejora lectura */
             }}
 
             #workspace {{ background: #1a1a1a; position: relative; }}
             #viewer-container {{ width: 100%; height: 70vh; background: #000; }}
             
             .custom-nav {{ position: absolute; top: 65px; left: 15px; z-index: 1005; display: flex; flex-direction: column; gap: 8px; }}
-            .nav-btn {{ width: 44px; height: 44px; border-radius: 8px; border: 2px solid white; color: white; font-size: 22px; font-weight: bold; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }}
+            .nav-btn {{ width: 44px; height: 44px; border-radius: 8px; border: 2px solid white; color: white; font-size: 22px; font-weight: bold; display: flex; align-items: center; justify-content: center; cursor: pointer; }}
             .btn-zoom-in {{ background: #1abc9c !important; }}
             .btn-zoom-out {{ background: #ffb7c5 !important; color: #333 !important; }}
             .btn-home {{ background: #3498db !important; }}
@@ -122,11 +123,10 @@ if xml_file and img_file:
             .dot {{ width: 14px; height: 14px; border-radius: 50%; border: 2px solid white; cursor: pointer; }}
             .dot.selected {{ border: 3px solid #fff !important; box-shadow: 0 0 15px #fff; transform: scale(1.6); z-index: 999 !important; }}
 
-            /* Estilo de Tabla Interactiva solicitado */
+            /* Estilo de Tabla Interactiva */
             .summary-card {{ background: white; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); padding: 20px; margin: 20px 0; }}
-            .category-row {{ background: #f8f9fa; border-left: 5px solid #3498db; padding: 10px 15px; margin-top: 15px; font-weight: bold; display: flex; justify-content: space-between; align-items: center; border-radius: 4px; }}
-            .item-table {{ width: 100%; margin-bottom: 0; }}
-            .item-table tr {{ transition: background 0.2s; cursor: default; }}
+            .category-row {{ background: #f1f4f8; border-left: 5px solid #3498db; padding: 10px 15px; margin-top: 15px; font-weight: bold; display: flex; justify-content: space-between; align-items: center; border-radius: 4px; }}
+            .item-table {{ width: 100%; }}
             .item-table tr:hover {{ background-color: #f1f8ff; }}
             .item-table td {{ padding: 10px 15px; border-bottom: 1px solid #eee; }}
             
@@ -151,7 +151,7 @@ if xml_file and img_file:
         </div>
 
         <div id="workspace">
-            <div id="info-bar">Selecciona una pieza para ver su detalle técnico</div>
+            <div id="info-bar">Selecciona una pieza para ver su detalle</div>
             <div class="custom-nav">
                 <div id="btn-in" class="nav-btn btn-zoom-in">+</div>
                 <div id="btn-out" class="nav-btn btn-zoom-out">−</div>
@@ -179,14 +179,22 @@ if xml_file and img_file:
 
             let filterT = 'all', filterC = 'all', lastSelected = null;
 
-            document.getElementById('btn-in').onclick = () => viewer.viewport.zoomBy(1.4);
-            document.getElementById('btn-out').onclick = () => viewer.viewport.zoomBy(0.7);
-            document.getElementById('btn-home').onclick = () => viewer.viewport.goHome();
-            
-            function toggleFS() {{
-                const el = document.getElementById("workspace");
-                if (!document.fullscreenElement) el.requestFullscreen();
-                else document.exitFullscreen();
+            // Función para calcular si el color es oscuro o claro
+            function getContrastColor(hex) {{
+                if (hex.indexOf('#') === 0) hex = hex.slice(1);
+                // Si es nombre de color CSS
+                const cssColors = {{ 'purple': '800080', 'black': '000000', 'royalblue': '4169E1', 'crimson': 'DC143C' }};
+                if (cssColors[hex]) hex = cssColors[hex];
+                
+                if (hex.length === 3) hex = hex[0]+hex[0]+hex[1]+hex[1]+hex[2]+hex[2];
+                if (hex.length !== 6) return '#2c3e50'; // Por defecto oscuro
+
+                const r = parseInt(hex.slice(0, 2), 16);
+                const g = parseInt(hex.slice(2, 4), 16);
+                const b = parseInt(hex.slice(4, 6), 16);
+                // Fórmula de luminancia
+                const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
+                return (yiq >= 128) ? '#2c3e50' : '#ffffff';
             }}
 
             viewer.addHandler('open', drawPoints);
@@ -208,16 +216,44 @@ if xml_file and img_file:
                         elt.classList.add('selected'); 
                         lastSelected = elt;
                         
-                        // Banner dinámico solicitado: Cambia al color del punto
                         const bar = document.getElementById('info-bar');
                         bar.style.backgroundColor = p.color_plot;
-                        bar.style.color = (p.color_plot === 'black' || p.color_plot === 'purple') ? 'white' : '#2c3e50';
+                        // Ajuste dinámico de color de letra
+                        const textColor = getContrastColor(p.color_plot);
+                        bar.style.color = textColor;
+                        bar.style.textShadow = textColor === '#ffffff' ? '1px 1px 2px rgba(0,0,0,0.5)' : 'none';
+                        
                         bar.innerHTML = "SELECCIONADO: " + p.tipo.toUpperCase() + " | " + p.color_norm.replace(/_/g, ' ').toUpperCase() + " (" + p.tamaño + ")";
                     }});
                     
                     viewer.addOverlay({{ element: elt, location: new OpenSeadragon.Point(p.x/imgW, p.y/imgW), placement: 'CENTER' }});
                 }});
                 renderSummary(filtered);
+            }}
+
+            function renderSummary(data) {{
+                const container = document.getElementById('tables-output');
+                const groups = {{}};
+                let totalGral = 0;
+                data.forEach(p => {{
+                    totalGral++;
+                    if(!groups[p.tipo]) groups[p.tipo] = {{}};
+                    const key = p.color_norm.replace(/_/g, ' ').toUpperCase() + " (" + p.tamaño + ")";
+                    groups[p.tipo][key] = (groups[p.tipo][key] || 0) + 1;
+                }});
+
+                let html = '<h4 class="fw-bold mb-4">DETALLE TÉCNICO DE PIEZAS</h4>';
+                for(let t in groups) {{
+                    let subtotal = Object.values(groups[t]).reduce((a, b) => a + b, 0);
+                    html += '<div class="category-row"><span>' + t.toUpperCase() + '</span><span class="badge bg-primary">' + subtotal + ' pz</span></div>';
+                    html += '<table class="item-table"><tbody>';
+                    for(let k in groups[t]) {{
+                        html += '<tr><td>' + k + '</td><td class="text-end fw-bold">' + groups[t][k] + ' pz</td></tr>';
+                    }}
+                    html += '</tbody></table>';
+                }}
+                html += '<div class="total-banner">CANTIDAD TOTAL: ' + totalGral + ' PIEZAS</div>';
+                container.innerHTML = html;
             }}
 
             function updateFilters(m, v, b) {{
@@ -230,36 +266,19 @@ if xml_file and img_file:
                 drawPoints();
             }}
 
-            function renderSummary(data) {{
-                const container = document.getElementById('tables-output');
-                const groups = {{}};
-                let totalGral = 0;
-                
-                data.forEach(p => {{
-                    totalGral++;
-                    if(!groups[p.tipo]) groups[p.tipo] = {{}};
-                    const key = p.color_norm.replace(/_/g, ' ').toUpperCase() + " (" + p.tamaño + ")";
-                    groups[p.tipo][key] = (groups[p.tipo][key] || 0) + 1;
-                }});
-
-                let html = '<h4 class="fw-bold mb-4">RESUMEN DE COMPONENTES - {nombre_modelo}</h4>';
-                for(let t in groups) {{
-                    let subtotal = Object.values(groups[t]).reduce((a, b) => a + b, 0);
-                    html += '<div class="category-row"><span>' + t.toUpperCase() + '</span><span class="badge bg-primary rounded-pill">' + subtotal + ' piezas</span></div>';
-                    html += '<table class="item-table"><tbody>';
-                    for(let k in groups[t]) {{
-                        html += '<tr><td>' + k + '</td><td class="text-end"><b>' + groups[t][k] + '</b> pz</td></tr>';
-                    }}
-                    html += '</tbody></table>';
-                }}
-                html += '<div class="total-banner">CANTIDAD TOTAL: ' + totalGral + ' PIEZAS</div>';
-                container.innerHTML = html;
+            function toggleFS() {{
+                const el = document.getElementById("workspace");
+                if (!document.fullscreenElement) el.requestFullscreen();
+                else document.exitFullscreen();
             }}
+
+            document.getElementById('btn-in').onclick = () => viewer.viewport.zoomBy(1.4);
+            document.getElementById('btn-out').onclick = () => viewer.viewport.zoomBy(0.7);
+            document.getElementById('btn-home').onclick = () => viewer.viewport.goHome();
         </script>
     </body>
     </html>
     """
     st.divider()
     st.download_button(label="📥 DESCARGAR REPORTE TÉCNICO FINAL", data=html_report, file_name=f"{titulo_final}.html", mime="text/html")
-
 
