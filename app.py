@@ -85,44 +85,45 @@ if xml_file and img_file:
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
         <script src="https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/openseadragon.min.js"></script>
         <style>
-            body {{ background-color: #f0f2f5; font-family: sans-serif; margin: 0; padding: 10px; }}
+            body {{ background-color: #f0f2f5; font-family: sans-serif; margin: 0; padding: 10px; overflow-x: hidden; }}
             .header {{ background: #2c3e50; color: white; padding: 20px; border-radius: 12px; text-align: center; margin-bottom: 15px; }}
             #viewer-container {{ width: 100%; height: 75vh; background: #333; border-radius: 12px; position: relative; }}
             .filter-card {{ background: white; padding: 15px; border-radius: 12px; margin-bottom: 15px; }}
-            .btn-filter {{ border-radius: 20px; font-size: 11px; margin: 2px; text-transform: uppercase; }}
             
             .dot {{ 
                 width: 10px; height: 10px; 
                 border-radius: 50%; border: 1px solid white; 
-                cursor: pointer; pointer-events: auto; z-index: 10;
-                box-shadow: 0 0 2px rgba(0,0,0,0.5);
+                cursor: pointer; pointer-events: auto;
                 box-sizing: border-box; 
-                transition: transform 0.2s ease;
             }}
             
             .dot.active {{
                 border: 2px solid #fff;
-                box-shadow: 0 0 12px #ffeb3b, 0 0 5px #ffeb3b inset;
+                box-shadow: 0 0 10px #ffeb3b, 0 0 5px #ffeb3b inset;
                 transform: scale(1.6);
-                z-index: 20;
             }}
-            
-            /* ESTILO DEL CUADRO DE INFORMACIÓN (MODO OVERLAY) */
-            .info-box {{
-                background: rgba(0, 0, 0, 0.85);
+
+            /* TOOLTIP GLOBAL FLOTANTE */
+            #floating-info {{
+                position: fixed;
+                background: rgba(0, 0, 0, 0.9);
                 color: white;
-                padding: 6px 10px;
-                border-radius: 4px;
-                font-size: 11px;
+                padding: 10px 15px;
+                border-radius: 8px;
+                font-size: 13px;
+                display: none;
+                z-index: 9999;
                 pointer-events: none;
-                white-space: nowrap;
-                border: 1px solid #555;
-                box-shadow: 0 2px 8px rgba(0,0,0,0.4);
-                z-index: 1000;
+                border: 1px solid #444;
+                box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+                text-align: center;
+                min-width: 120px;
             }}
         </style>
     </head>
     <body>
+        <div id="floating-info"></div>
+        
         <div class="header">
             <h1 style="font-size: 1.4rem; margin: 0;">REPORTE DE COMPONENTES</h1>
             <div style="color: #3498db; font-weight: bold;">{nombre_modelo.upper() if nombre_modelo else 'SIN NOMBRE'}</div>
@@ -130,86 +131,60 @@ if xml_file and img_file:
 
         <div class="filter-card">
             <div id="tipo-filters">
-                <button class="btn btn-primary btn-sm btn-filter" onclick="updateFilters('tipo', 'all', this)">TODOS</button>
-                {' '.join([f'<button class="btn btn-outline-primary btn-sm btn-filter" onclick="updateFilters(\'tipo\', \'{t}\', this)">{t}</button>' for t in tipos_unicos])}
-            </div>
-            <div id="color-filters" class="mt-2">
-                <button class="btn btn-success btn-sm btn-filter" onclick="updateFilters('color', 'all', this)">TODOS</button>
-                {' '.join([f'<button class="btn btn-outline-success btn-sm btn-filter" onclick="updateFilters(\'color\', \'{c}\', this)">{c}</button>' for c in colores_unicos])}
+                <button class="btn btn-primary btn-sm rounded-pill" style="font-size:10px;" onclick="updateFilters('tipo', 'all', this)">TODOS</button>
+                {' '.join([f'<button class="btn btn-outline-primary btn-sm rounded-pill" style="font-size:10px; margin:2px;" onclick="updateFilters(\'tipo\', \'{t}\', this)">{t}</button>' for t in tipos_unicos])}
             </div>
         </div>
 
         <div id="viewer-container"></div>
 
-        <div class="filter-card mt-3">
-            <div id="tables-output"></div>
-            <div class="text-end h5 mt-3 text-primary" id="total-text"></div>
-        </div>
+        <div class="filter-card mt-3" id="tables-output"></div>
 
         <script>
             const puntos = {puntos_json};
             const imgW = {width};
             const imgH = {height};
             let filterT = 'all';
-            let filterC = 'all';
             let currentSelectedDot = null;
-            let currentOverlayId = "active-info";
+            let currentData = null;
+            
+            const tooltip = document.getElementById('floating-info');
 
             const viewer = OpenSeadragon({{
                 id: "viewer-container",
                 prefixUrl: "https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/images/",
                 tileSources: {{ type: 'image', url: '{data_uri}' }},
-                gestureSettingsTouch: {{ pinchRotate: false, clickToZoom: false, dblClickToZoom: true }},
+                gestureSettingsTouch: {{ clickToZoom: false, dblClickToZoom: true }},
                 gestureSettingsMouse: {{ clickToZoom: false }},
                 showNavigationControl: false,
                 defaultZoomLevel: 0,
-                minZoomLevel: 0,
                 maxZoomLevel: 50,
-                visibilityRatio: 1,
-                constrainDuringPan: true,
                 detectRetina: false
             }});
 
             function drawPoints() {{
                 viewer.clearOverlays();
-                const filtered = puntos.filter(p => {{
-                    const mt = (filterT === 'all' || p.tipo === filterT);
-                    const mc = (filterC === 'all' || p.color_norm === filterC);
-                    return mt && mc;
-                }});
+                const filtered = puntos.filter(p => filterT === 'all' || p.tipo === filterT);
 
-                filtered.forEach((p, index) => {{
+                filtered.forEach((p) => {{
                     const elt = document.createElement("div");
                     elt.className = "dot";
-                    elt.id = "dot-" + index;
                     elt.style.backgroundColor = p.color_plot;
                     
-                    const handleSelect = (e) => {{
-                        if(e) {{ e.preventDefault(); e.stopPropagation(); }}
+                    const handleAction = (e) => {{
+                        e.preventDefault();
+                        e.stopPropagation();
 
-                        // Limpiar anterior
                         if (currentSelectedDot) currentSelectedDot.classList.remove('active');
-                        viewer.removeOverlay(currentOverlayId);
-
-                        // Activar punto
                         elt.classList.add('active');
                         currentSelectedDot = elt;
+                        currentData = p;
 
-                        // Crear Cuadro de Información como Overlay
-                        const info = document.createElement("div");
-                        info.id = currentOverlayId;
-                        info.className = "info-box";
-                        info.innerHTML = `<b>${{p.tipo.toUpperCase()}}</b><br>${{p.color_norm}} | ${{p.tamaño}}`;
-
-                        viewer.addOverlay({{
-                            element: info,
-                            location: new OpenSeadragon.Point(p.x / imgW, (p.y / imgW) - (15/imgW)), // Un poco arriba del punto
-                            placement: OpenSeadragon.Placement.BOTTOM // Se ancla abajo para quedar sobre el punto
-                        }});
+                        updateTooltipPosition();
                     }};
-                    
-                    elt.addEventListener('click', handleSelect);
-                    elt.addEventListener('touchstart', handleSelect, {{passive: false}});
+
+                    elt.addEventListener('click', handleAction);
+                    elt.addEventListener('touchstart', handleAction);
 
                     viewer.addOverlay({{
                         element: elt,
@@ -220,24 +195,40 @@ if xml_file and img_file:
                 renderTables(filtered);
             }}
 
-            // Cerrar al tocar el fondo
-            viewer.addHandler('canvas-click', function(event) {{
-                if (!event.originalTarget.classList.contains('dot')) {{
-                    viewer.removeOverlay(currentOverlayId);
-                    if (currentSelectedDot) {{
-                        currentSelectedDot.classList.remove('active');
-                        currentSelectedDot = null;
-                    }}
-                }}
+            function updateTooltipPosition() {{
+                if (!currentSelectedDot || !currentData) return;
+
+                // Obtener posición real del punto en la pantalla del dispositivo
+                const rect = currentSelectedDot.getBoundingClientRect();
+                
+                tooltip.style.display = 'block';
+                tooltip.innerHTML = `<b>${{currentData.tipo.toUpperCase()}}</b><br>${{currentData.color_norm}}<br>${{currentData.tamaño}}`;
+                
+                // Posicionar arriba del punto
+                const x = rect.left + (rect.width / 2) - (tooltip.offsetWidth / 2);
+                const y = rect.top - tooltip.offsetHeight - 15;
+
+                tooltip.style.left = x + 'px';
+                tooltip.style.top = y + 'px';
+            }}
+
+            // Mantener el cuadro pegado al punto durante el zoom o movimiento
+            viewer.addHandler('animation', updateTooltipPosition);
+            viewer.addHandler('canvas-drag', updateTooltipPosition);
+            viewer.addHandler('canvas-scroll', updateTooltipPosition);
+
+            viewer.addHandler('canvas-click', () => {{
+                tooltip.style.display = 'none';
+                if (currentSelectedDot) currentSelectedDot.classList.remove('active');
+                currentSelectedDot = null;
             }});
 
             function updateFilters(mode, val, btn) {{
                 const parent = btn.parentElement;
-                const activeClass = mode === 'tipo' ? 'btn-primary' : 'btn-success';
-                const outlineClass = mode === 'tipo' ? 'btn-outline-primary' : 'btn-outline-success';
-                parent.querySelectorAll('.btn').forEach(b => {{ b.classList.remove(activeClass); b.classList.add(outlineClass); }});
-                btn.classList.add(activeClass); btn.classList.remove(outlineClass);
-                if(mode === 'tipo') filterT = val; else filterC = val;
+                parent.querySelectorAll('.btn').forEach(b => {{ b.classList.remove('btn-primary'); b.classList.add('btn-outline-primary'); }});
+                btn.classList.add('btn-primary'); btn.classList.remove('btn-outline-primary');
+                filterT = val;
+                tooltip.style.display = 'none';
                 drawPoints();
             }}
 
@@ -245,24 +236,21 @@ if xml_file and img_file:
                 const container = document.getElementById('tables-output');
                 const groups = {{}};
                 data.forEach(p => {{
-                    const key = p.tipo;
-                    if(!groups[key]) groups[key] = {{}};
-                    const subKey = p.color_norm + '|' + p.tamaño;
-                    groups[key][subKey] = (groups[key][subKey] || 0) + 1;
+                    if(!groups[p.tipo]) groups[p.tipo] = {{}};
+                    const key = p.color_norm + '|' + p.tamaño;
+                    groups[p.tipo][key] = (groups[p.tipo][key] || 0) + 1;
                 }});
-                let html = '';
+                let html = '<h5 class="text-primary">Resumen de Materiales</h5>';
                 for(const t in groups) {{
                     html += `<div class="mt-2"><strong>${{t.toUpperCase()}}</strong></div>
-                             <table class="table table-sm" style="font-size: 11px;">
-                             <thead><tr><th>Color</th><th>Tam.</th><th>Cant.</th></tr></thead><tbody>`;
+                             <table class="table table-sm" style="font-size: 11px;"><tbody>`;
                     for(const sk in groups[t]) {{
                         const [c, tam] = sk.split('|');
-                        html += `<tr><td>${{c}}</td><td>${{tam}}</td><td>${{groups[t][sk]}}</td></tr>`;
+                        html += `<tr><td>${{c}}</td><td>${{tam}}</td><td>${{groups[t][sk]}} pz</td></tr>`;
                     }}
                     html += '</tbody></table>';
                 }}
                 container.innerHTML = html;
-                document.getElementById('total-text').innerText = 'Piezas: ' + data.length;
             }}
 
             viewer.addHandler('open', drawPoints);
@@ -273,11 +261,9 @@ if xml_file and img_file:
 
     st.divider()
     st.download_button(
-        label="📥 DESCARGAR REPORTE: CORRECCIÓN DE CUADROS",
+        label="📥 DESCARGAR REPORTE: SOLUCIÓN DEFINITIVA",
         data=html_report,
         file_name=f"Reporte_{nombre_modelo}.html",
         mime="text/html"
     )
-
-
 
