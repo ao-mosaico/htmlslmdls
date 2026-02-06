@@ -83,30 +83,28 @@ if xml_file and img_file:
     <html>
     <head>
         <title>Reporte Pro: {nombre_modelo}</title>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=no">
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
         <script src="https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/openseadragon.min.js"></script>
         <style>
             body {{ background-color: #f0f2f5; font-family: sans-serif; margin: 0; padding: 10px; }}
             .header {{ background: #2c3e50; color: white; padding: 20px; border-radius: 12px; text-align: center; margin-bottom: 15px; }}
-            #viewer-container {{ width: 100%; height: 60vh; background: #333; border-radius: 12px; position: relative; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }}
+            #viewer-container {{ width: 100%; height: 60vh; background: #333; border-radius: 12px; position: relative; overflow: hidden; }}
             .filter-card {{ background: white; padding: 15px; border-radius: 12px; margin-bottom: 15px; }}
             .btn-filter {{ border-radius: 20px; font-size: 11px; margin: 2px; text-transform: uppercase; }}
             
-            /* ESTILO DE LOS PUNTOS Y TOOLTIPS */
             .dot {{ 
-                position: absolute; width: 12px; height: 12px; 
-                border-radius: 50%; border: 1px solid white; 
+                position: absolute; width: 10px; height: 10px; 
+                border-radius: 50%; border: 1px solid rgba(255,255,255,0.8); 
                 transform: translate(-50%, -50%); 
-                cursor: pointer; pointer-events: auto; z-index: 10;
+                cursor: pointer; pointer-events: auto;
             }}
-            .dot:hover {{ border: 2px solid yellow; transform: translate(-50%, -50%) scale(1.5); }}
             
             .osd-tooltip {{
-                position: absolute; background: rgba(0,0,0,0.85); color: white;
-                padding: 5px 10px; border-radius: 5px; font-size: 11px;
-                pointer-events: none; display: none; z-index: 1000;
-                white-space: nowrap; box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+                position: absolute; background: rgba(0,0,0,0.9); color: white;
+                padding: 6px 12px; border-radius: 6px; font-size: 12px;
+                pointer-events: none; display: none; z-index: 9999;
+                white-space: nowrap; border: 1px solid #444;
             }}
         </style>
     </head>
@@ -118,13 +116,11 @@ if xml_file and img_file:
         </div>
 
         <div class="filter-card">
-            <small class="text-muted d-block mb-2">COMPONENTES:</small>
             <div id="tipo-filters">
                 <button class="btn btn-primary btn-sm btn-filter" onclick="updateFilters('tipo', 'all', this)">TODOS</button>
                 {' '.join([f'<button class="btn btn-outline-primary btn-sm btn-filter" onclick="updateFilters(\'tipo\', \'{t}\', this)">{t}</button>' for t in tipos_unicos])}
             </div>
-            <small class="text-muted d-block mt-3 mb-2">COLORES:</small>
-            <div id="color-filters">
+            <div id="color-filters" class="mt-2">
                 <button class="btn btn-success btn-sm btn-filter" onclick="updateFilters('color', 'all', this)">TODOS</button>
                 {' '.join([f'<button class="btn btn-outline-success btn-sm btn-filter" onclick="updateFilters(\'color\', \'{c}\', this)">{c}</button>' for c in colores_unicos])}
             </div>
@@ -149,12 +145,19 @@ if xml_file and img_file:
                 id: "viewer-container",
                 prefixUrl: "https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/images/",
                 tileSources: {{ type: 'image', url: '{data_uri}' }},
-                gestureSettingsTouch: {{ pinchRotate: true, scrollToZoom: true }},
+                // BLOQUEO DE ROTACIÓN Y MEJORA DE GESTOS
+                gestureSettingsTouch: {{ 
+                    pinchRotate: false, 
+                    pinchZoom: true,
+                    scrollToZoom: true,
+                    flickEnabled: true
+                }},
                 showNavigationControl: false,
                 defaultZoomLevel: 0,
                 minZoomLevel: 0,
                 visibilityRatio: 1,
-                constrainDuringPan: true
+                constrainDuringPan: true,
+                imageSmoothingEnabled: true
             }});
 
             function drawPoints() {{
@@ -170,21 +173,27 @@ if xml_file and img_file:
                     elt.className = "dot";
                     elt.style.backgroundColor = p.color_plot;
                     
-                    // Eventos para el Tooltip
                     const showInfo = (e) => {{
                         tooltip.style.display = 'block';
                         tooltip.innerHTML = `<b>${{p.tipo.toUpperCase()}}</b><br>${{p.color_norm}} | ${{p.tamaño}}`;
-                        tooltip.style.left = (e.pageX + 10) + 'px';
-                        tooltip.style.top = (e.pageY + 10) + 'px';
+                        const xPos = (e.clientX || e.touches[0].clientX);
+                        const yPos = (e.clientY || e.touches[0].clientY);
+                        tooltip.style.left = (xPos + 15) + 'px';
+                        tooltip.style.top = (yPos - 40) + 'px';
                     }};
                     
                     elt.onmouseover = showInfo;
-                    elt.ontouchstart = showInfo;
+                    elt.ontouchstart = (e) => {{ e.preventDefault(); showInfo(e); }};
                     elt.onmouseout = () => tooltip.style.display = 'none';
+                    elt.ontouchend = () => tooltip.style.display = 'none';
 
+                    // CÁLCULO DE PRECISIÓN: normalizamos X respecto al ancho de la imagen
+                    // OpenSeadragon usa la coordenada X normalizada (0 a 1)
+                    // y la Y proporcional al aspecto de la imagen.
                     viewer.addOverlay({{
                         element: elt,
-                        location: new OpenSeadragon.Point(p.x / imgW, p.y / imgW)
+                        location: new OpenSeadragon.Point(p.x / imgW, p.y / imgW),
+                        placement: OpenSeadragon.Placement.CENTER
                     }});
                 }});
                 renderTables(filtered);
@@ -232,7 +241,7 @@ if xml_file and img_file:
 
     st.divider()
     st.download_button(
-        label="📥 DESCARGAR REPORTE TÁCTIL CON INFO",
+        label="📥 DESCARGAR REPORTE PRECISIÓN FINAL",
         data=html_report,
         file_name=f"Reporte_{nombre_modelo}.html",
         mime="text/html"
