@@ -99,25 +99,37 @@ if xml_file and img_file:
                 font-weight: bold;
                 border: 2px dashed #fbc02d;
                 font-size: 15px;
-                transition: all 0.3s;
             }}
 
-            #viewer-container {{ width: 100%; height: 65vh; background: #1a1a1a; border-radius: 10px; border: 2px solid #ccc; }}
+            #viewer-container {{ width: 100%; height: 65vh; background: #1a1a1a; border-radius: 10px; border: 1px solid #ccc; }}
             
             .dot {{ 
-                width: 12px; height: 12px; 
+                width: 14px; height: 14px; 
                 border-radius: 50%; border: 2px solid white; 
-                cursor: pointer; transition: transform 0.2s;
+                cursor: pointer; z-index: 10;
             }}
 
             /* ILUMINACIÓN DEL PUNTO SELECCIONADO */
             .dot.selected {{
-                border-color: #fff !important;
-                box-shadow: 0 0 15px 5px #fff, 0 0 10px 2px #ffeb3b;
-                transform: scale(2.2);
-                z-index: 100 !important;
+                border: 3px solid #fff !important;
+                box-shadow: 0 0 20px 8px #fff, 0 0 15px 4px #ffeb3b;
+                transform: scale(2.5);
+                z-index: 999 !important;
             }}
 
+            .category-header {{
+                background: #e1f5fe;
+                padding: 8px 15px;
+                border-radius: 6px;
+                color: #01579b;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-top: 20px;
+                font-weight: bold;
+                border-left: 5px solid #0288d1;
+            }}
+            
             .total-banner {{
                 background: #1976d2;
                 color: white;
@@ -126,24 +138,13 @@ if xml_file and img_file:
                 text-align: center;
                 font-size: 1.3rem;
                 font-weight: bold;
-                margin-top: 20px;
-            }}
-            .category-header {{
-                background: #e1f5fe;
-                padding: 5px 10px;
-                border-radius: 5px;
-                color: #01579b;
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                margin-top: 15px;
-                font-weight: bold;
+                margin-top: 25px;
             }}
         </style>
     </head>
     <body>
         <div class="header">
-            <h2 style="font-size: 1.1rem; margin: 0;">REPORTE TÉCNICO: {nombre_modelo.upper() if nombre_modelo else 'MODELO'}</h2>
+            <h2 style="font-size: 1.2rem; margin: 0;">REPORTE TÉCNICO: {nombre_modelo.upper() if nombre_modelo else 'S/N'}</h2>
         </div>
 
         <div class="filter-card">
@@ -159,7 +160,7 @@ if xml_file and img_file:
             </div>
         </div>
 
-        <div id="info-bar">Selecciona un cristal en la imagen para ver el detalle</div>
+        <div id="info-bar">Toca un punto en la imagen para ver el detalle</div>
 
         <div id="viewer-container"></div>
         
@@ -181,13 +182,16 @@ if xml_file and img_file:
                 tileSources: {{ type: 'image', url: '{data_uri}' }},
                 showNavigationControl: false,
                 maxZoomLevel: 60,
+                // LIMITAR ZOOM OUT Y DESPLAZAMIENTO
+                minZoomImageRatio: 1.0,
+                visibilityRatio: 1.0,
+                constrainDuringPan: true,
                 gestureSettingsTouch: {{ clickToZoom: false, dblClickToZoom: false }},
                 gestureSettingsMouse: {{ clickToZoom: false, dblClickToZoom: false }}
             }});
 
             function drawPoints() {{
                 viewer.clearOverlays();
-                lastSelectedElt = null;
                 const filtered = puntos.filter(p => {{
                     const matchT = (filterT === 'all' || p.tipo === filterT);
                     const matchC = (filterC === 'all' || p.color_norm === filterC);
@@ -200,15 +204,12 @@ if xml_file and img_file:
                     elt.style.backgroundColor = p.color_plot;
                     
                     const action = (e) => {{
-                        e.preventDefault(); e.stopPropagation();
-                        
-                        // Iluminar el punto
+                        if(e) {{ e.preventDefault(); e.stopPropagation(); }}
                         if(lastSelectedElt) lastSelectedElt.classList.remove('selected');
                         elt.classList.add('selected');
                         lastSelectedElt = elt;
 
-                        // Actualizar barra
-                        infoBar.innerHTML = "DETALLE: " + p.tipo.toUpperCase() + " | " + p.color_norm + " | " + p.tamaño;
+                        infoBar.innerHTML = "PUNTO SELECCIONADO: " + p.tipo.toUpperCase() + " | " + p.color_norm + " | " + p.tamaño;
                         infoBar.style.backgroundColor = "#c8e6c9";
                         infoBar.style.borderColor = "#4caf50";
                     }};
@@ -221,7 +222,6 @@ if xml_file and img_file:
                         placement: OpenSeadragon.Placement.CENTER
                     }});
                 }});
-                
                 renderSummary(filtered);
             }}
 
@@ -233,7 +233,7 @@ if xml_file and img_file:
                 btn.classList.add(activeC); btn.classList.remove(outlineC);
                 if (mode === 'tipo') filterT = val; else filterC = val;
                 
-                infoBar.innerHTML = "Selecciona un cristal en la imagen para ver el detalle";
+                infoBar.innerHTML = "Toca un punto en la imagen para ver el detalle";
                 infoBar.style.backgroundColor = "#fff9c4";
                 infoBar.style.borderColor = "#fbc02d";
                 drawPoints();
@@ -251,16 +251,14 @@ if xml_file and img_file:
                     groups[p.tipo][key] = (groups[p.tipo][key] || 0) + 1;
                 }});
 
-                // Encabezado con Nombre de Modelo
                 let html = '<h5 class="text-dark border-bottom pb-2 fw-bold">RESUMEN DE COMPONENTES - ' + modeloActivo + '</h5>';
                 
                 for(let t in groups) {{
-                    // Calcular total por tipo
                     let subtotal = 0;
                     for(let k in groups[t]) {{ subtotal += groups[t][k]; }}
                     
                     html += '<div class="category-header"><span>' + t.toUpperCase() + '</span><span>(' + subtotal + ' piezas)</span></div>';
-                    html += '<table class="table table-sm table-striped mb-0" style="font-size: 11px;"><tbody>';
+                    html += '<table class="table table-sm table-striped mb-0 mt-1" style="font-size: 11px;"><tbody>';
                     for(let k in groups[t]) {{
                         html += '<tr><td>' + k + '</td><td class="text-end"><b>' + groups[t][k] + '</b> pz</td></tr>';
                     }}
@@ -279,7 +277,7 @@ if xml_file and img_file:
 
     st.divider()
     st.download_button(
-        label="📥 DESCARGAR REPORTE FINALIZADO",
+        label="📥 DESCARGAR REPORTE FINAL OPTIMIZADO",
         data=html_report,
         file_name=f"Reporte_{nombre_modelo}.html",
         mime="text/html"
