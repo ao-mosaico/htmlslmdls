@@ -88,7 +88,7 @@ if xml_file and img_file:
     titulo_final = f"Componentes {nombre_modelo}" if nombre_modelo else "Componentes"
 
     # =========================================================
-    # REPORTE HTML (Con botón NINGUNO y Contraste Dinámico)
+    # REPORTE HTML (Con bloqueo de zoom out excesivo)
     # =========================================================
     html_report = f"""
     <!DOCTYPE html>
@@ -109,7 +109,7 @@ if xml_file and img_file:
                 transition: all 0.3s ease; min-height: 54px;
             }}
 
-            #workspace {{ background: #1a1a1a; position: relative; }}
+            #workspace {{ background: #1a1a1a; position: relative; overflow: hidden; }}
             #viewer-container {{ width: 100%; height: 70vh; background: #000; }}
             
             .custom-nav {{ position: absolute; top: 65px; left: 15px; z-index: 1005; display: flex; flex-direction: column; gap: 8px; }}
@@ -167,11 +167,17 @@ if xml_file and img_file:
         <script>
             const puntos = {puntos_json};
             const imgW = {width};
+            
             const viewer = OpenSeadragon({{
                 id: "viewer-container",
                 prefixUrl: "https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/images/",
                 tileSources: {{ type: 'image', url: '{data_uri}' }},
-                showNavigationControl: false, maxZoomLevel: 80,
+                showNavigationControl: false,
+                maxZoomLevel: 80,
+                // BLOQUEO DE ZOOM OUT: Evita que la imagen sea más pequeña que el visor
+                minZoomImageRatio: 1.0,
+                visibilityRatio: 1.0,
+                constrainDuringPan: true,
                 gestureSettingsTouch: {{ clickToZoom: false, dblClickToZoom: false }},
                 gestureSettingsMouse: {{ clickToZoom: false, dblClickToZoom: false }}
             }});
@@ -195,8 +201,6 @@ if xml_file and img_file:
 
             function drawPoints() {{
                 viewer.clearOverlays();
-                
-                // Si el filtro es 'none', no dibujamos nada
                 if (filterT === 'none') {{
                     document.getElementById('info-bar').innerHTML = "MODO DE INSPECCIÓN: PUNTOS OCULTOS";
                     document.getElementById('info-bar').style.backgroundColor = "#f8f9fa";
@@ -237,8 +241,6 @@ if xml_file and img_file:
                 const container = document.getElementById('tables-output');
                 const groups = {{}};
                 let totalGral = 0;
-                
-                // Usamos los puntos originales para el resumen si el filtro es 'none'
                 const summaryData = (filterT === 'none') ? puntos : data;
 
                 summaryData.forEach(p => {{
@@ -264,19 +266,7 @@ if xml_file and img_file:
 
             function updateFilters(m, v, b) {{
                 const p = b.parentElement;
-                let activeClass = '';
-                let outlineClass = '';
-                
-                if (m === 'tipo') {{
-                    activeClass = (v === 'none') ? 'btn-secondary' : 'btn-primary';
-                    outlineClass = (v === 'none') ? 'btn-outline-secondary' : 'btn-outline-primary';
-                }} else {{
-                    activeClass = 'btn-success';
-                    outlineClass = 'btn-outline-success';
-                }}
-
                 p.querySelectorAll('.btn').forEach(x => {{
-                    // Resetear clases basándose en el tipo de botón original
                     if (x.classList.contains('btn-primary') || x.classList.contains('btn-outline-primary')) {{
                         x.classList.remove('btn-primary'); x.classList.add('btn-outline-primary');
                     }} else if (x.classList.contains('btn-success') || x.classList.contains('btn-outline-success')) {{
@@ -285,6 +275,9 @@ if xml_file and img_file:
                         x.classList.remove('btn-secondary'); x.classList.add('btn-outline-secondary');
                     }}
                 }});
+
+                const activeClass = (v === 'none') ? 'btn-secondary' : (m === 'tipo' ? 'btn-primary' : 'btn-success');
+                const outlineClass = (v === 'none') ? 'btn-outline-secondary' : (m === 'tipo' ? 'btn-outline-primary' : 'btn-outline-success');
 
                 b.classList.add(activeClass);
                 b.classList.remove(outlineClass);
@@ -308,4 +301,3 @@ if xml_file and img_file:
     """
     st.divider()
     st.download_button(label="📥 DESCARGAR REPORTE TÉCNICO FINAL", data=html_report, file_name=f"{titulo_final}.html", mime="text/html")
-
