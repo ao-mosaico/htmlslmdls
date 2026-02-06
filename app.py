@@ -7,12 +7,11 @@ import json
 from io import BytesIO
 
 # =========================================================
-# CONFIGURACIÓN Y CATÁLOGO AMPLIADO
+# CONFIGURACIÓN Y CATÁLOGO (ESTABLE)
 # =========================================================
 st.set_page_config(page_title="Gestor de Mosaicos Pro", layout="wide")
 
 COLOR_CATALOG = {
-    # Cristales y generales
     "plata": "silver", "dorado": "gold", "rosa": "pink",
     "ab_aguamarina": "aquamarine", "ab_amatista": "mediumpurple",
     "ab_cristal": "lightcyan", "ab_peridot": "lightgreen",
@@ -24,9 +23,7 @@ COLOR_CATALOG = {
     "opal_green": "lightgreen", "peridot": "limegreen",
     "rose": "pink", "siam": "crimson", "topaz": "orange",
     "violet": "violet", "zafiro": "royalblue", "sin_color": "gray",
-    # Dicroicos
     "gmb_morado": "#9400D3", "rsb_azul": "#0000FF", "rsb/gbm_subl": "#87CEFA",
-    # NUEVOS COLORES: MICROPERLAS
     "amarillo": "#FFFF00", "azul_rey": "#0000CD", "rojo": "#FF0000",
     "turqueza": "#40E0D0", "turqueza_metalico": "#00CED1", "teal": "#008080",
     "mauva": "#E0B0FF", "lilac": "#C8A2C8", "azul_purpura": "#8A2BE2",
@@ -42,10 +39,7 @@ def normalizar_color(c):
 def ajustar_color_por_tipo(row):
     tipo = str(row["tipo"]).lower()
     color = row["color_norm"]
-    
-    # Lógica para Microperlas y Dicroicos
-    if tipo == "microperla":
-        return color if color in COLOR_CATALOG else "otro"
+    if tipo == "microperla": return color if color in COLOR_CATALOG else "otro"
     if tipo == "dicroico":
         if color in ["gmb_morado", "rsb_azul", "rsb/gbm_subl"]: return color
         return "gmb_morado"
@@ -53,7 +47,7 @@ def ajustar_color_por_tipo(row):
     return color
 
 # =========================================================
-# PROCESAMIENTO DE DATOS
+# PROCESAMIENTO
 # =========================================================
 st.sidebar.title("💎 Panel de Control")
 nombre_modelo = st.sidebar.text_input("Nombre del Modelo", placeholder="Ej: PB-8612 A")
@@ -95,7 +89,7 @@ if xml_file and img_file:
     titulo_final = f"Componentes {nombre_modelo}" if nombre_modelo else "Componentes"
 
     # =========================================================
-    # GENERACIÓN DEL REPORTE HTML
+    # HTML/JS (CORREGIDO: Desactivado click-to-zoom)
     # =========================================================
     html_report = f"""
     <!DOCTYPE html>
@@ -108,19 +102,16 @@ if xml_file and img_file:
         <style>
             body {{ background-color: #f8f9fa; padding: 0; margin: 0; font-family: 'Segoe UI', sans-serif; }}
             .header {{ background: #2c3e50; color: white; padding: 15px; text-align: center; border-bottom: 4px solid #1abc9c; }}
-            
             #info-bar {{
                 position: -webkit-sticky; position: sticky; top: 0; z-index: 2000;
                 background: #fff9c4; color: #333; padding: 12px; text-align: center;
                 font-weight: bold; border-bottom: 2px solid #fbc02d; font-size: 16px;
                 box-shadow: 0 2px 8px rgba(0,0,0,0.1); min-height: 50px;
             }}
-
             #workspace {{ background: #1a1a1a; position: relative; display: flex; flex-direction: column; }}
             #workspace:fullscreen {{ width: 100vw; height: 100vh; }}
             #workspace:fullscreen #viewer-container {{ flex: 1; height: auto; }}
             #viewer-container {{ width: 100%; height: 75vh; background: #000; }}
-            
             .custom-nav {{
                 position: absolute; top: 65px; left: 15px; z-index: 1005;
                 display: flex; flex-direction: column; gap: 10px;
@@ -129,22 +120,19 @@ if xml_file and img_file:
                 width: 44px; height: 44px; border-radius: 10px; border: 2px solid white;
                 color: white; font-size: 24px; font-weight: bold; display: flex;
                 align-items: center; justify-content: center; cursor: pointer;
-                box-shadow: 0 4px 6px rgba(0,0,0,0.3); transition: all 0.2s;
+                box-shadow: 0 4px 6px rgba(0,0,0,0.3);
             }}
             .btn-zoom-in {{ background-color: #1abc9c !important; }}
             .btn-zoom-out {{ background-color: #ffb7c5 !important; color: #333 !important; }}
             .btn-home {{ background-color: #3498db !important; }}
-
             .btn-fs {{
                 position: absolute; top: 65px; right: 15px; z-index: 1005;
                 background: #ffffff; border: 2px solid #2c3e50; padding: 10px 20px;
                 border-radius: 30px; font-weight: bold; cursor: pointer; 
                 box-shadow: 0 4px 6px rgba(0,0,0,0.2);
             }}
-
-            .dot {{ width: 12px; height: 12px; border-radius: 50%; border: 1.5px solid white; cursor: pointer; transition: all 0.2s; }}
-            .dot.selected {{ border: 3px solid #fff !important; box-shadow: 0 0 12px 4px #fff; transform: scale(1.8); z-index: 999 !important; }}
-
+            .dot {{ width: 14px; height: 14px; border-radius: 50%; border: 2px solid white; cursor: pointer; transition: all 0.2s; }}
+            .dot.selected {{ border: 3px solid #fff !important; box-shadow: 0 0 12px 4px #fff; transform: scale(1.6); z-index: 999 !important; }}
             .p-container {{ padding: 15px; }}
             .filter-card {{ background: white; padding: 15px; border-radius: 12px; margin-bottom: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }}
             .category-header {{ background: #e8f4fd; padding: 10px 15px; border-radius: 8px; color: #2980b9; display: flex; justify-content: space-between; margin-top: 20px; font-weight: bold; border-left: 6px solid #3498db; }}
@@ -178,7 +166,6 @@ if xml_file and img_file:
             <div id="viewer-container"></div>
         </div>
         <div class="p-container"><div class="filter-card" id="tables-output"></div></div>
-
         <script>
             const puntos = {puntos_json};
             const imgW = {width};
@@ -187,21 +174,19 @@ if xml_file and img_file:
                 prefixUrl: "https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/images/",
                 tileSources: {{ type: 'image', url: '{data_uri}' }},
                 showNavigationControl: false, maxZoomLevel: 80, minZoomImageRatio: 1.0, visibilityRatio: 1.0,
-                constrainDuringPan: true
+                constrainDuringPan: true,
+                gestureSettingsTouch: {{ clickToZoom: false, dblClickToZoom: false }},
+                gestureSettingsMouse: {{ clickToZoom: false, dblClickToZoom: false }}
             }});
-
             document.getElementById('btn-in').onclick = () => viewer.viewport.zoomBy(1.4);
             document.getElementById('btn-out').onclick = () => viewer.viewport.zoomBy(0.7);
             document.getElementById('btn-home').onclick = () => viewer.viewport.goHome();
-
             viewer.addHandler('open', drawPoints);
-
             function toggleFullScreen() {{
                 const elem = document.getElementById("workspace");
                 if (!document.fullscreenElement) elem.requestFullscreen();
                 else document.exitFullscreen();
             }}
-
             function drawPoints() {{
                 viewer.clearOverlays();
                 const filtered = puntos.filter(p => {{
@@ -213,51 +198,18 @@ if xml_file and img_file:
                     const elt = document.createElement("div");
                     elt.className = "dot";
                     elt.style.backgroundColor = p.color_plot;
-                    elt.onclick = () => {{
+                    
+                    // Evento corregido para prevenir propagación al zoom
+                    const selectAction = (e) => {{
+                        if(e) {{ e.stopPropagation(); e.preventDefault(); }}
                         if(lastSelectedElt) lastSelectedElt.classList.remove('selected');
                         elt.classList.add('selected'); lastSelectedElt = elt;
                         document.getElementById('info-bar').innerHTML = "SELECCIONADO: " + p.tipo.toUpperCase() + " | " + p.color_norm.replace(/_/g, ' ').toUpperCase() + " | " + p.tamaño;
+                        document.getElementById('info-bar').style.backgroundColor = "#d1f2eb";
                     }};
-                    viewer.addOverlay({{ element: elt, location: new OpenSeadragon.Point(p.x/imgW, p.y/imgW), placement: 'CENTER' }});
-                }});
-                renderSummary(filtered);
-            }}
 
-            let filterT = 'all', filterC = 'all', lastSelectedElt = null;
-            function updateFilters(m, v, b) {{
-                const p = b.parentElement;
-                const ac = m === 'tipo' ? 'btn-primary' : 'btn-success';
-                const oc = m === 'tipo' ? 'btn-outline-primary' : 'btn-outline-success';
-                p.querySelectorAll('.btn').forEach(x => {{ x.classList.remove(ac); x.classList.add(oc); }});
-                b.classList.add(ac); b.classList.remove(oc);
-                if (m === 'tipo') filterT = v; else filterC = v;
-                drawPoints();
-            }}
+                    elt.addEventListener('pointerdown', selectAction);
 
-            function renderSummary(data) {{
-                const container = document.getElementById('tables-output');
-                const groups = {{}};
-                let totalGral = 0;
-                data.forEach(p => {{
-                    totalGral++;
-                    if(!groups[p.tipo]) groups[p.tipo] = {{}};
-                    const key = p.color_norm.replace(/_/g, ' ').toUpperCase() + " (" + p.tamaño + ")";
-                    groups[p.tipo][key] = (groups[p.tipo][key] || 0) + 1;
-                }});
-                let html = '<h5 class="fw-bold">RESUMEN DE COMPONENTES - {nombre_modelo}</h5>';
-                for(let t in groups) {{
-                    html += '<div class="category-header"><span>' + t.toUpperCase() + '</span></div>';
-                    html += '<table class="table table-sm"><tbody>';
-                    for(let k in groups[t]) html += '<tr><td>' + k + '</td><td class="text-end"><b>' + groups[t][k] + '</b> pz</td></tr>';
-                    html += '</tbody></table>';
-                }}
-                html += '<div class="total-banner">TOTAL: ' + totalGral + ' PIEZAS</div>';
-                container.innerHTML = html;
-            }}
-        </script>
-    </body>
-    </html>
-    """
-    st.divider()
-    st.download_button(label=f"📥 DESCARGAR REPORTE TÉCNICO", data=html_report, file_name=f"{titulo_final}.html", mime="text/html")
+                    viewer.addOverlay({{ element: elt, location: new OpenSeadragon.Point(p.x/
+
 
