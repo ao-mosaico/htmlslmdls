@@ -87,13 +87,12 @@ if xml_file and img_file:
         <style>
             body {{ background-color: #f0f2f5; font-family: sans-serif; margin: 0; padding: 10px; }}
             .header {{ background: #2c3e50; color: white; padding: 20px; border-radius: 12px; text-align: center; margin-bottom: 15px; }}
-            #viewer-container {{ width: 100%; height: 70vh; background: #333; border-radius: 12px; position: relative; overflow: visible !important; }}
+            #viewer-container {{ width: 100%; height: 75vh; background: #333; border-radius: 12px; position: relative; }}
             .filter-card {{ background: white; padding: 15px; border-radius: 12px; margin-bottom: 15px; }}
             .btn-filter {{ border-radius: 20px; font-size: 11px; margin: 2px; text-transform: uppercase; }}
             
-            /* PUNTOS MÁS PEQUEÑOS */
             .dot {{ 
-                position: absolute; width: 10px; height: 10px; 
+                width: 10px; height: 10px; 
                 border-radius: 50%; border: 1px solid white; 
                 cursor: pointer; pointer-events: auto; z-index: 10;
                 box-shadow: 0 0 2px rgba(0,0,0,0.5);
@@ -104,29 +103,26 @@ if xml_file and img_file:
             .dot.active {{
                 border: 2px solid #fff;
                 box-shadow: 0 0 12px #ffeb3b, 0 0 5px #ffeb3b inset;
-                transform: scale(1.8);
-                z-index: 100;
+                transform: scale(1.6);
+                z-index: 20;
             }}
             
-            /* TOOLTIP POSICIONADO RESPECTO AL PUNTO */
-            .osd-tooltip {{
-                position: absolute; background: rgba(0,0,0,0.9); color: white;
-                padding: 8px 12px; border-radius: 6px; font-size: 12px;
-                pointer-events: none; display: none; z-index: 1000;
-                white-space: nowrap; border: 1px solid #444;
-                transform: translate(-50%, -120%); /* Centrado sobre el punto */
-                box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-            }}
-            /* Flechita del tooltip */
-            .osd-tooltip::after {{
-                content: ""; position: absolute; top: 100%; left: 50%;
-                margin-left: -5px; border-width: 5px; border-style: solid;
-                border-color: rgba(0,0,0,0.9) transparent transparent transparent;
+            /* ESTILO DEL CUADRO DE INFORMACIÓN (MODO OVERLAY) */
+            .info-box {{
+                background: rgba(0, 0, 0, 0.85);
+                color: white;
+                padding: 6px 10px;
+                border-radius: 4px;
+                font-size: 11px;
+                pointer-events: none;
+                white-space: nowrap;
+                border: 1px solid #555;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+                z-index: 1000;
             }}
         </style>
     </head>
     <body>
-        <div id="tooltip" class="osd-tooltip"></div>
         <div class="header">
             <h1 style="font-size: 1.4rem; margin: 0;">REPORTE DE COMPONENTES</h1>
             <div style="color: #3498db; font-weight: bold;">{nombre_modelo.upper() if nombre_modelo else 'SIN NOMBRE'}</div>
@@ -156,26 +152,19 @@ if xml_file and img_file:
             const imgH = {height};
             let filterT = 'all';
             let filterC = 'all';
-            const tooltip = document.getElementById('tooltip');
             let currentSelectedDot = null;
+            let currentOverlayId = "active-info";
 
             const viewer = OpenSeadragon({{
                 id: "viewer-container",
                 prefixUrl: "https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/images/",
-                tileSources: {{
-                    type: 'image',
-                    url: '{data_uri}'
-                }},
-                gestureSettingsTouch: {{ 
-                    pinchRotate: false,
-                    clickToZoom: false,
-                    dblClickToZoom: true 
-                }},
+                tileSources: {{ type: 'image', url: '{data_uri}' }},
+                gestureSettingsTouch: {{ pinchRotate: false, clickToZoom: false, dblClickToZoom: true }},
                 gestureSettingsMouse: {{ clickToZoom: false }},
                 showNavigationControl: false,
                 defaultZoomLevel: 0,
                 minZoomLevel: 0,
-                maxZoomLevel: 50, // ZOOM EXTREMO SOLICITADO
+                maxZoomLevel: 50,
                 visibilityRatio: 1,
                 constrainDuringPan: true,
                 detectRetina: false
@@ -189,27 +178,34 @@ if xml_file and img_file:
                     return mt && mc;
                 }});
 
-                filtered.forEach(p => {{
+                filtered.forEach((p, index) => {{
                     const elt = document.createElement("div");
                     elt.className = "dot";
+                    elt.id = "dot-" + index;
                     elt.style.backgroundColor = p.color_plot;
                     
                     const handleSelect = (e) => {{
-                        e.preventDefault(); 
-                        e.stopPropagation();
+                        if(e) {{ e.preventDefault(); e.stopPropagation(); }}
 
+                        // Limpiar anterior
                         if (currentSelectedDot) currentSelectedDot.classList.remove('active');
+                        viewer.removeOverlay(currentOverlayId);
+
+                        // Activar punto
                         elt.classList.add('active');
                         currentSelectedDot = elt;
 
-                        // LÓGICA DE TOOLTIP POSICIONADO ARRIBA DEL PUNTO
-                        tooltip.style.display = 'block';
-                        tooltip.innerHTML = `<b>${{p.tipo.toUpperCase()}}</b><br>${{p.color_norm}} | ${{p.tamaño}}`;
-                        
-                        // Obtenemos la posición del elemento en pantalla
-                        const rect = elt.getBoundingClientRect();
-                        tooltip.style.left = (rect.left + rect.width / 2) + 'px';
-                        tooltip.style.top = (rect.top - 10) + 'px';
+                        // Crear Cuadro de Información como Overlay
+                        const info = document.createElement("div");
+                        info.id = currentOverlayId;
+                        info.className = "info-box";
+                        info.innerHTML = `<b>${{p.tipo.toUpperCase()}}</b><br>${{p.color_norm}} | ${{p.tamaño}}`;
+
+                        viewer.addOverlay({{
+                            element: info,
+                            location: new OpenSeadragon.Point(p.x / imgW, (p.y / imgW) - (15/imgW)), // Un poco arriba del punto
+                            placement: OpenSeadragon.Placement.BOTTOM // Se ancla abajo para quedar sobre el punto
+                        }});
                     }};
                     
                     elt.addEventListener('click', handleSelect);
@@ -224,18 +220,10 @@ if xml_file and img_file:
                 renderTables(filtered);
             }}
 
-            // Actualizar posición del tooltip mientras se mueve el mapa
-            viewer.addHandler('animation', function() {{
-                if (currentSelectedDot && tooltip.style.display === 'block') {{
-                    const rect = currentSelectedDot.getBoundingClientRect();
-                    tooltip.style.left = (rect.left + rect.width / 2) + 'px';
-                    tooltip.style.top = (rect.top - 10) + 'px';
-                }}
-            }});
-
+            // Cerrar al tocar el fondo
             viewer.addHandler('canvas-click', function(event) {{
                 if (!event.originalTarget.classList.contains('dot')) {{
-                    tooltip.style.display = 'none';
+                    viewer.removeOverlay(currentOverlayId);
                     if (currentSelectedDot) {{
                         currentSelectedDot.classList.remove('active');
                         currentSelectedDot = null;
@@ -285,12 +273,11 @@ if xml_file and img_file:
 
     st.divider()
     st.download_button(
-        label="📥 DESCARGAR REPORTE: ZOOM 50X + PUNTOS PRO",
+        label="📥 DESCARGAR REPORTE: CORRECCIÓN DE CUADROS",
         data=html_report,
         file_name=f"Reporte_{nombre_modelo}.html",
         mime="text/html"
     )
-
 
 
 
