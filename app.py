@@ -113,44 +113,45 @@ if xml_file and img_file:
             .custom-nav {{ position: absolute; top: 125px; left: 15px; z-index: 1005; display: flex; flex-direction: column; gap: 8px; }}
             .btn-fs {{ position: absolute; top: 125px; right: 15px; z-index: 1005; background: #fff; border: 2px solid #2c3e50; padding: 8px 16px; border-radius: 20px; font-weight: bold; cursor: pointer; }}
 
+            /* SIDEBAR PARA PANTALLA COMPLETA */
+            #fs-sidebar {{
+                position: absolute; top: 0; left: -320px; width: 300px; height: 100%;
+                background: rgba(44, 62, 80, 0.95); backdrop-filter: blur(10px);
+                z-index: 3000; transition: 0.3s ease; padding: 25px; color: white;
+                box-shadow: 5px 0 15px rgba(0,0,0,0.5); overflow-y: auto;
+            }}
+            #fs-sidebar.active {{ left: 0; }}
+            #toggle-sidebar-btn {{
+                position: absolute; top: 185px; left: 15px; z-index: 1005;
+                background: #1abc9c; color: white; border: 2px solid white;
+                padding: 10px; border-radius: 8px; font-weight: bold; display: none; cursor: pointer;
+            }}
+            #workspace:fullscreen #toggle-sidebar-btn {{ display: block; }}
+
+            .sidebar-section-title {{ font-size: 12px; font-weight: bold; color: #1abc9c; letter-spacing: 1px; margin-bottom: 15px; border-bottom: 1px solid #3e5871; padding-bottom: 5px; }}
             .nav-btn {{ width: 44px; height: 44px; border-radius: 8px; border: 2px solid white; color: white; font-size: 22px; font-weight: bold; display: flex; align-items: center; justify-content: center; cursor: pointer; }}
             .btn-zoom-in {{ background: #1abc9c !important; }}
             .btn-zoom-out {{ background: #ffb7c5 !important; color: #333 !important; }}
             .btn-home {{ background: #3498db !important; }}
 
-            /* APARIENCIA DE LOS PUNTOS - SOLICITUD DEL USUARIO */
-            .dot {{ 
-                width: 14px; 
-                height: 14px; 
-                border-radius: 50%; 
-                border: none; /* Sin borde inicial */
-                opacity: 0.7; /* Opacidad para disimularse */
-                cursor: pointer; 
-                transition: transform 0.2s, opacity 0.2s;
-            }}
-            .dot.selected {{ 
-                opacity: 1 !important;
-                border: 3px solid #fff !important; 
-                box-shadow: 0 0 15px #fff; 
-                transform: scale(1.6); 
-                z-index: 999 !important; 
-            }}
+            .dot {{ width: 14px; height: 14px; border-radius: 50%; border: none; opacity: 0.7; cursor: pointer; transition: transform 0.2s, opacity 0.2s; }}
+            .dot.selected {{ opacity: 1 !important; border: 3px solid #fff !important; box-shadow: 0 0 15px #fff; transform: scale(1.6); z-index: 999 !important; }}
 
             .report-container {{ position: relative; z-index: 1; background: #f4f7f6; padding-top: 20px; }}
             .summary-card {{ background: white; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); padding: 25px; margin-bottom: 40px; }}
-            
             .category-row {{ background: #f1f4f8; border-left: 5px solid #3498db; padding: 10px 15px; margin-top: 15px; font-weight: bold; display: flex; justify-content: space-between; align-items: center; border-radius: 4px; }}
             .item-table {{ width: 100%; margin-bottom: 10px; }}
             .item-table td {{ padding: 10px 15px; border-bottom: 1px solid #eee; }}
-            
             .total-banner {{ background: #2c3e50; color: white; padding: 20px; border-radius: 8px; text-align: center; font-size: 1.5rem; font-weight: bold; margin-top: 25px; }}
             .filter-section {{ background: white; padding: 15px; border-radius: 12px; margin: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }}
+            
+            .fs-close-btn {{ float: right; cursor: pointer; font-size: 24px; }}
         </style>
     </head>
     <body>
         <div class="header"><h2>{titulo_final}</h2></div>
         
-        <div class="filter-section">
+        <div id="main-filters" class="filter-section">
             <div class="mb-2">
                 <small class="fw-bold text-muted">TIPO DE PIEZA:</small>
                 <button class="btn btn-primary btn-sm rounded-pill px-3" onclick="updateFilters('tipo', 'all', this)">TODOS</button>
@@ -165,7 +166,28 @@ if xml_file and img_file:
         </div>
 
         <div id="workspace">
+            <div id="fs-sidebar">
+                <span class="fs-close-btn" onclick="toggleFsSidebar()">×</span>
+                <h5 class="mb-4">🔍 Filtros de Inspección</h5>
+                
+                <div class="sidebar-section-title">TIPO DE COMPONENTE</div>
+                <div class="d-grid gap-2 mb-4">
+                    <button class="btn btn-primary btn-sm" onclick="syncAndFilter('tipo', 'all')">TODOS</button>
+                    {' '.join([f'<button class="btn btn-outline-light btn-sm" onclick="syncAndFilter(\'tipo\', \'{t}\')">{t.upper()}</button>' for t in tipos_unicos])}
+                    <button class="btn btn-outline-secondary btn-sm" onclick="syncAndFilter('tipo', 'none')">OCULTAR TODO</button>
+                </div>
+
+                <div class="sidebar-section-title">FILTRAR POR COLOR</div>
+                <div class="d-grid gap-2">
+                    <button class="btn btn-success btn-sm" onclick="syncAndFilter('color', 'all')">TODOS LOS COLORES</button>
+                    {' '.join([f'<button class="btn btn-outline-light btn-sm" style="text-align: left;" onclick="syncAndFilter(\'color\', \'{c}\')"><span style="display:inline-block;width:10px;height:10px;background:{COLOR_CATALOG.get(c, "gray")};margin-right:8px;border-radius:50%"></span>{c.replace("_", " ").upper()}</button>' for c in colores_unicos])}
+                </div>
+            </div>
+
             <div id="info-bar">Selecciona un punto para ver su detalle</div>
+            
+            <button id="toggle-sidebar-btn" onclick="toggleFsSidebar()">☰ Filtros</button>
+            
             <div class="custom-nav">
                 <div id="btn-in" class="nav-btn btn-zoom-in">+</div>
                 <div id="btn-out" class="nav-btn btn-zoom-out">−</div>
@@ -199,8 +221,23 @@ if xml_file and img_file:
             let filterT = 'all', filterC = 'all', lastSelected = null;
 
             document.addEventListener('fullscreenchange', () => {{
+                if (!document.fullscreenElement) {{
+                    document.getElementById('fs-sidebar').classList.remove('active');
+                }}
                 setTimeout(() => {{ viewer.viewport.goHome(); }}, 100);
             }});
+
+            function toggleFsSidebar() {{
+                document.getElementById('fs-sidebar').classList.toggle('active');
+            }}
+
+            function syncAndFilter(mode, value) {{
+                // Esta función sincroniza el filtro del sidebar con la lógica general
+                if (mode === 'tipo') filterT = value; else filterC = value;
+                drawPoints();
+                // Opcional: Cerrar sidebar tras elegir (puedes comentarlo si prefieres que siga abierto)
+                // toggleFsSidebar(); 
+            }}
 
             function getContrastColor(hex) {{
                 if (hex.indexOf('#') === 0) hex = hex.slice(1);
@@ -247,10 +284,8 @@ if xml_file and img_file:
                         if(lastSelected) lastSelected.classList.remove('selected');
                         elt.classList.add('selected'); 
                         lastSelected = elt;
-                        
                         bar.style.backgroundColor = p.color_plot;
-                        const textColor = getContrastColor(p.color_plot);
-                        bar.style.color = textColor;
+                        bar.style.color = getContrastColor(p.color_plot);
                         bar.innerHTML = "SELECCIONADO: " + p.tipo.toUpperCase() + " | " + p.color_norm.replace(/_/g, ' ').toUpperCase() + " (" + p.tamaño + ")";
                     }});
                     
@@ -287,22 +322,15 @@ if xml_file and img_file:
             }}
 
             function updateFilters(m, v, b) {{
+                // Lógica de botones de la vista principal
                 const p = b.parentElement;
                 p.querySelectorAll('.btn').forEach(x => {{
-                    if (x.classList.contains('btn-primary') || x.classList.contains('btn-outline-primary')) {{
-                        x.classList.remove('btn-primary'); x.classList.add('btn-outline-primary');
-                    }} else if (x.classList.contains('btn-success') || x.classList.contains('btn-outline-success')) {{
-                        x.classList.remove('btn-success'); x.classList.add('btn-outline-success');
-                    }} else if (x.classList.contains('btn-secondary') || x.classList.contains('btn-outline-secondary')) {{
-                        x.classList.remove('btn-secondary'); x.classList.add('btn-outline-secondary');
-                    }}
+                    x.classList.replace('btn-primary', 'btn-outline-primary');
+                    x.classList.replace('btn-success', 'btn-outline-success');
+                    x.classList.replace('btn-secondary', 'btn-outline-secondary');
                 }});
-
                 const activeClass = (v === 'none') ? 'btn-secondary' : (m === 'tipo' ? 'btn-primary' : 'btn-success');
-                const outlineClass = (v === 'none') ? 'btn-outline-secondary' : (m === 'tipo' ? 'btn-outline-primary' : 'btn-outline-success');
-
-                b.classList.add(activeClass);
-                b.classList.remove(outlineClass);
+                b.classList.replace(b.classList.contains('btn-outline-primary')?'btn-outline-primary':(b.classList.contains('btn-outline-success')?'btn-outline-success':'btn-outline-secondary'), activeClass);
                 
                 if (m === 'tipo') filterT = v; else filterC = v;
                 drawPoints();
@@ -325,4 +353,4 @@ if xml_file and img_file:
     </html>
     """
     st.divider()
-    st.download_button(label="📥 DESCARGAR REPORTE CON ESTÉTICA DE PUNTOS MEJORADA", data=html_report, file_name=f"{titulo_final}.html", mime="text/html")
+    st.download_button(label="📥 DESCARGAR REPORTE CON SIDEBAR INMERSIVO", data=html_report, file_name=f"{titulo_final}.html", mime="text/html")
