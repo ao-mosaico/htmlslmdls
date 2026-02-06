@@ -79,16 +79,13 @@ if xml_file and img_file:
     <!DOCTYPE html>
     <html>
     <head>
-        <title>Reporte: {nombre_modelo}</title>
+        <title>Componentes {nombre_modelo}</title>
         <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
         <script src="https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/openseadragon.min.js"></script>
         <style>
-            body {{ background-color: #f1f3f4; padding: 0; margin: 0; font-family: 'Segoe UI', sans-serif; }}
-            .p-container {{ padding: 10px; }}
-            .header {{ background: #2c3e50; color: white; padding: 15px; text-align: center; }}
-            
-            .filter-card {{ background: white; padding: 15px; border-radius: 10px; margin-bottom: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }}
+            body {{ background-color: #f8f9fa; padding: 0; margin: 0; font-family: 'Segoe UI', sans-serif; }}
+            .header {{ background: #2c3e50; color: white; padding: 15px; text-align: center; border-bottom: 4px solid #1abc9c; }}
             
             #info-bar {{
                 position: -webkit-sticky;
@@ -101,70 +98,49 @@ if xml_file and img_file:
                 text-align: center;
                 font-weight: bold;
                 border-bottom: 2px solid #fbc02d;
-                font-size: 15px;
-                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                font-size: 16px;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
             }}
 
-            #workspace {{ 
-                background: #1a1a1a; 
-                position: relative; 
-                display: flex; 
-                flex-direction: column; 
-            }}
+            #workspace {{ background: #1a1a1a; position: relative; display: flex; flex-direction: column; }}
+            #workspace:fullscreen {{ width: 100vw; height: 100vh; }}
+            #workspace:fullscreen #viewer-container {{ flex: 1; height: auto; }}
+            #viewer-container {{ width: 100%; height: 75vh; background: #000; }}
             
-            /* Ajuste para que el visor crezca en Pantalla Completa */
-            #workspace:fullscreen {{
-                width: 100vw;
-                height: 100vh;
-            }}
-            #workspace:fullscreen #viewer-container {{
-                flex: 1;
-                height: auto;
-            }}
-
-            #viewer-container {{ width: 100%; height: 70vh; background: #000; }}
+            /* ESTILO DE BOTONES DE NAVEGACIÓN PERSONALIZADOS */
+            .openseadragon-container .buttons {{ display: flex; gap: 5px; padding: 10px; }}
             
-            .dot {{ 
-                width: 14px; height: 14px; 
-                border-radius: 50%; border: 2px solid white; 
-                cursor: pointer; transition: all 0.2s;
-            }}
+            /* Zoom In - Verde Agua */
+            .nav-btn-in {{ background-color: #2ecc71 !important; color: white !important; border-radius: 8px !important; border: none !important; }}
+            /* Zoom Out - Rosa Claro */
+            .nav-btn-out {{ background-color: #ffb7c5 !important; color: #333 !important; border-radius: 8px !important; border: none !important; }}
+            /* Home - Azul */
+            .nav-btn-home {{ background-color: #3498db !important; color: white !important; border-radius: 8px !important; border: none !important; }}
 
-            /* CRECIMIENTO DISCRETO */
-            .dot.selected {{
-                border: 3px solid #fff !important;
-                box-shadow: 0 0 12px 4px #fff, 0 0 8px 1px #ffeb3b;
-                transform: scale(1.6);
-                z-index: 999 !important;
-            }}
+            .dot {{ width: 14px; height: 14px; border-radius: 50%; border: 2px solid white; cursor: pointer; transition: all 0.2s; }}
+            .dot.selected {{ border: 3px solid #fff !important; box-shadow: 0 0 12px 4px #fff, 0 0 8px 1px #ffeb3b; transform: scale(1.6); z-index: 999 !important; }}
 
             .btn-fs {{
-                position: absolute; top: 60px; right: 10px; z-index: 1001;
-                background: rgba(255,255,255,0.9); border: 1px solid #ccc; padding: 8px 12px;
-                border-radius: 5px; font-weight: bold; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+                position: absolute; top: 60px; right: 15px; z-index: 1001;
+                background: #ffffff; border: 2px solid #2c3e50; padding: 8px 16px;
+                border-radius: 30px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
             }}
 
-            .category-header {{
-                background: #e1f5fe; padding: 8px 15px; border-radius: 6px;
-                color: #01579b; display: flex; justify-content: space-between;
-                align-items: center; margin-top: 20px; font-weight: bold; border-left: 5px solid #0288d1;
-            }}
-            
-            .total-banner {{
-                background: #1976d2; color: white; padding: 15px; border-radius: 10px;
-                text-align: center; font-size: 1.3rem; font-weight: bold; margin-top: 25px;
-            }}
+            .p-container {{ padding: 15px; }}
+            .filter-card {{ background: white; padding: 15px; border-radius: 12px; margin-bottom: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }}
+            .category-header {{ background: #e8f4fd; padding: 10px 15px; border-radius: 8px; color: #2980b9; display: flex; justify-content: space-between; margin-top: 20px; font-weight: bold; border-left: 6px solid #3498db; }}
+            .total-banner {{ background: #2c3e50; color: white; padding: 18px; border-radius: 12px; text-align: center; font-size: 1.4rem; font-weight: bold; margin-top: 30px; }}
         </style>
     </head>
     <body>
         <div class="header">
-            <h2 style="font-size: 1.2rem; margin: 0;">REPORTE TÉCNICO: {nombre_modelo.upper() if nombre_modelo else 'S/N'}</h2>
+            <h2 style="font-size: 1.4rem; margin: 0;">Componentes {nombre_modelo if nombre_modelo else ''}</h2>
         </div>
 
         <div class="p-container">
             <div class="filter-card">
                 <div class="mb-2">
-                    <small class="text-muted fw-bold">TIPO:</small>
+                    <small class="text-muted fw-bold">TIPO DE PIEZA:</small>
                     <button class="btn btn-primary btn-sm rounded-pill px-3" onclick="updateFilters('tipo', 'all', this)">TODOS</button>
                     {' '.join([f'<button class="btn btn-outline-primary btn-sm rounded-pill px-3 mx-1" onclick="updateFilters(\'tipo\', \'{t}\', this)">{t}</button>' for t in tipos_unicos])}
                 </div>
@@ -177,8 +153,8 @@ if xml_file and img_file:
         </div>
 
         <div id="workspace">
-            <div id="info-bar">Toca un punto en la imagen para ver el detalle</div>
-            <button class="btn-fs" onclick="toggleFullScreen()">📺 Pantalla Completa</button>
+            <div id="info-bar">Selecciona un punto para ver su descripción técnica</div>
+            <button class="btn-fs" onclick="toggleFullScreen()">+ Pantalla Completa</button>
             <div id="viewer-container"></div>
         </div>
         
@@ -189,7 +165,7 @@ if xml_file and img_file:
         <script>
             const puntos = {puntos_json};
             const imgW = {width};
-            const modeloActivo = "{nombre_modelo.upper() if nombre_modelo else 'MODELO'}";
+            const modeloActivo = "{nombre_modelo if nombre_modelo else ''}";
             let filterT = 'all';
             let filterC = 'all';
             let lastSelectedElt = null;
@@ -202,12 +178,29 @@ if xml_file and img_file:
                 tileSources: {{ type: 'image', url: '{data_uri}' }},
                 showNavigationControl: true,
                 navigationControlAnchor: OpenSeadragon.ControlAnchor.TOP_LEFT,
+                // Personalización de clases de botones
+                zoomInButton: "zoom-in-btn",
+                zoomOutButton: "zoom-out-btn",
+                homeButton: "home-btn",
+                showFullScreenControl: false, // Quitamos el botón nativo confuso
                 maxZoomLevel: 60,
                 minZoomImageRatio: 1.0,
                 visibilityRatio: 1.0,
                 constrainDuringPan: true,
-                gestureSettingsTouch: {{ clickToZoom: false, dblClickToZoom: false }},
-                gestureSettingsMouse: {{ clickToZoom: false, dblClickToZoom: false }}
+                gestureSettingsTouch: {{ clickToZoom: false, dblClickToZoom: false }}
+            }});
+
+            // Aplicar estilos a los botones después de que se crean
+            viewer.addHandler('open', () => {{
+                const btnIn = document.getElementById('zoom-in-btn');
+                const btnOut = document.getElementById('zoom-out-btn');
+                const btnHome = document.getElementById('home-btn');
+                
+                if(btnIn) btnIn.className = "nav-btn-in";
+                if(btnOut) btnOut.className = "nav-btn-out";
+                if(btnHome) btnHome.className = "nav-btn-home";
+                
+                drawPoints();
             }});
 
             function toggleFullScreen() {{
@@ -239,8 +232,8 @@ if xml_file and img_file:
                         lastSelectedElt = elt;
 
                         infoBar.innerHTML = "PUNTO SELECCIONADO: " + p.tipo.toUpperCase() + " | " + p.color_norm + " | " + p.tamaño;
-                        infoBar.style.backgroundColor = "#c8e6c9";
-                        infoBar.style.borderColor = "#4caf50";
+                        infoBar.style.backgroundColor = "#d1f2eb";
+                        infoBar.style.borderColor = "#1abc9c";
                     }};
 
                     elt.addEventListener('pointerdown', action);
@@ -262,7 +255,7 @@ if xml_file and img_file:
                 btn.classList.add(activeC); btn.classList.remove(outlineC);
                 if (mode === 'tipo') filterT = val; else filterC = val;
                 
-                infoBar.innerHTML = "Toca un punto en la imagen para ver el detalle";
+                infoBar.innerHTML = "Selecciona un punto para ver su descripción técnica";
                 infoBar.style.backgroundColor = "#fff9c4";
                 infoBar.style.borderColor = "#fbc02d";
                 drawPoints();
@@ -285,17 +278,15 @@ if xml_file and img_file:
                     let subtotal = 0;
                     for(let k in groups[t]) {{ subtotal += groups[t][k]; }}
                     html += '<div class="category-header"><span>' + t.toUpperCase() + '</span><span>(' + subtotal + ' piezas)</span></div>';
-                    html += '<table class="table table-sm table-striped mb-0 mt-1" style="font-size: 11px;"><tbody>';
+                    html += '<table class="table table-sm table-hover mb-0 mt-1" style="font-size: 11px;"><tbody>';
                     for(let k in groups[t]) {{
                         html += '<tr><td>' + k + '</td><td class="text-end"><b>' + groups[t][k] + '</b> pz</td></tr>';
                     }}
                     html += '</tbody></table>';
                 }}
-                html += '<div class="total-banner">TOTAL GENERAL: ' + totalGral + ' COMPONENTES</div>';
+                html += '<div class="total-banner">CANTIDAD TOTAL: ' + totalGral + ' PIEZAS</div>';
                 container.innerHTML = html;
             }}
-
-            viewer.addHandler('open', drawPoints);
         </script>
     </body>
     </html>
@@ -303,8 +294,8 @@ if xml_file and img_file:
 
     st.divider()
     st.download_button(
-        label="📥 DESCARGAR REPORTE PROFESIONAL",
+        label=f"📥 DESCARGAR REPORTE: COMPONENTES {nombre_modelo}",
         data=html_report,
-        file_name=f"Reporte_{nombre_modelo}.html",
+        file_name=f"Componentes_{nombre_modelo}.html",
         mime="text/html"
     )
