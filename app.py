@@ -122,14 +122,13 @@ if xml_file and img_file:
             }}
             #fs-sidebar.active {{ right: 0; }}
             
-            /* BOTÓN DE FILTROS AJUSTADO AL LADO DERECHO Y DINÁMICO */
             #toggle-sidebar-btn {{
                 position: absolute; top: 185px; right: 15px; z-index: 3001;
                 background: #1abc9c; color: white; border: 2px solid white;
                 padding: 10px; border-radius: 8px; font-weight: bold; display: none; cursor: pointer;
                 transition: right 0.3s ease;
             }}
-            #fs-sidebar.active ~ #toggle-sidebar-btn {{ right: 315px; }} /* Se mueve con el panel */
+            #fs-sidebar.active ~ #toggle-sidebar-btn {{ right: 315px; }} 
             
             #workspace:fullscreen #toggle-sidebar-btn {{ display: block; }}
 
@@ -139,6 +138,7 @@ if xml_file and img_file:
             .btn-zoom-out {{ background: #ffb7c5 !important; color: #333 !important; }}
             .btn-home {{ background: #3498db !important; }}
 
+            /* APARIENCIA DE PUNTOS */
             .dot {{ width: 14px; height: 14px; border-radius: 50%; border: none; opacity: 0.7; cursor: pointer; transition: transform 0.2s, opacity 0.2s; }}
             .dot.selected {{ opacity: 1 !important; border: 3px solid #fff !important; box-shadow: 0 0 15px #fff; transform: scale(1.6); z-index: 999 !important; }}
 
@@ -157,16 +157,16 @@ if xml_file and img_file:
         <div class="header"><h2>{titulo_final}</h2></div>
         
         <div id="main-filters" class="filter-section">
-            <div class="mb-2">
+            <div class="mb-2" id="group-tipo-main">
                 <small class="fw-bold text-muted">TIPO DE PIEZA:</small>
-                <button class="btn btn-primary btn-sm rounded-pill px-3" onclick="updateFilters('tipo', 'all', this)">TODOS</button>
-                {' '.join([f'<button class="btn btn-outline-primary btn-sm rounded-pill px-3 mx-1" onclick="updateFilters(\'tipo\', \'{t}\', this)">{t.upper()}</button>' for t in tipos_unicos])}
-                <button class="btn btn-outline-secondary btn-sm rounded-pill px-3 mx-1" onclick="updateFilters('tipo', 'none', this)">❌ NINGUNO</button>
+                <button class="btn btn-primary btn-sm rounded-pill px-3" data-val="all" onclick="updateFilters('tipo', 'all', this)">TODOS</button>
+                {' '.join([f'<button class="btn btn-outline-primary btn-sm rounded-pill px-3 mx-1" data-val="{t}" onclick="updateFilters(\'tipo\', \'{t}\', this)">{t.upper()}</button>' for t in tipos_unicos])}
+                <button class="btn btn-outline-secondary btn-sm rounded-pill px-3 mx-1" data-val="none" onclick="updateFilters('tipo', 'none', this)">❌ NINGUNO</button>
             </div>
-            <div>
+            <div id="group-color-main">
                 <small class="fw-bold text-muted">COLOR:</small>
-                <button class="btn btn-success btn-sm rounded-pill px-3" onclick="updateFilters('color', 'all', this)">TODOS</button>
-                {' '.join([f'<button class="btn btn-outline-success btn-sm rounded-pill px-3 mx-1" onclick="updateFilters(\'color\', \'{c}\', this)">{c.replace("_", " ").upper()}</button>' for c in colores_unicos])}
+                <button class="btn btn-success btn-sm rounded-pill px-3" data-val="all" onclick="updateFilters('color', 'all', this)">TODOS</button>
+                {' '.join([f'<button class="btn btn-outline-success btn-sm rounded-pill px-3 mx-1" data-val="{c}" onclick="updateFilters(\'color\', \'{c}\', this)">{c.replace("_", " ").upper()}</button>' for c in colores_unicos])}
             </div>
         </div>
 
@@ -177,16 +177,16 @@ if xml_file and img_file:
                 <h5 class="mb-4">🔍 Filtros de Inspección</h5>
                 
                 <div class="sidebar-section-title">TIPO DE COMPONENTE</div>
-                <div class="d-grid gap-2 mb-4">
-                    <button class="btn btn-primary btn-sm" onclick="syncAndFilter('tipo', 'all')">TODOS</button>
-                    {' '.join([f'<button class="btn btn-outline-light btn-sm" onclick="syncAndFilter(\'tipo\', \'{t}\')">{t.upper()}</button>' for t in tipos_unicos])}
-                    <button class="btn btn-outline-secondary btn-sm" onclick="syncAndFilter('tipo', 'none')">OCULTAR TODO</button>
+                <div class="d-grid gap-2 mb-4" id="group-tipo-fs">
+                    <button class="btn btn-primary btn-sm btn-filter-fs" data-val="all" onclick="syncAndFilter('tipo', 'all', this)">TODOS</button>
+                    {' '.join([f'<button class="btn btn-outline-light btn-sm btn-filter-fs" data-val="{t}" onclick="syncAndFilter(\'tipo\', \'{t}\', this)">{t.upper()}</button>' for t in tipos_unicos])}
+                    <button class="btn btn-outline-secondary btn-sm btn-filter-fs" data-val="none" onclick="syncAndFilter('tipo', 'none', this)">OCULTAR TODO</button>
                 </div>
 
                 <div class="sidebar-section-title">FILTRAR POR COLOR</div>
-                <div class="d-grid gap-2">
-                    <button class="btn btn-success btn-sm" onclick="syncAndFilter('color', 'all')">TODOS LOS COLORES</button>
-                    {' '.join([f'<button class="btn btn-outline-light btn-sm" style="text-align: left;" onclick="syncAndFilter(\'color\', \'{c}\')"><span style="display:inline-block;width:10px;height:10px;background:{COLOR_CATALOG.get(c, "gray")};margin-right:8px;border-radius:50%"></span>{c.replace("_", " ").upper()}</button>' for c in colores_unicos])}
+                <div class="d-grid gap-2" id="group-color-fs">
+                    <button class="btn btn-success btn-sm btn-filter-fs" data-val="all" onclick="syncAndFilter('color', 'all', this)">TODOS LOS COLORES</button>
+                    {' '.join([f'<button class="btn btn-outline-light btn-sm btn-filter-fs" style="text-align: left;" data-val="{c}" onclick="syncAndFilter(\'color\', \'{c}\', this)"><span style="display:inline-block;width:10px;height:10px;background:{COLOR_CATALOG.get(c, "gray")};margin-right:8px;border-radius:50%"></span>{c.replace("_", " ").upper()}</button>' for c in colores_unicos])}
                 </div>
             </div>
 
@@ -238,9 +238,35 @@ if xml_file and img_file:
                 document.getElementById('fs-sidebar').classList.toggle('active');
             }}
 
-            function syncAndFilter(mode, value) {{
-                if (mode === 'tipo') filterT = value; else filterC = value;
+            // Lógica unificada para iluminar botones
+            function highlightButtons(groupId, value, activeClass, outlineClass) {{
+                const container = document.getElementById(groupId);
+                container.querySelectorAll('.btn').forEach(btn => {{
+                    if (btn.getAttribute('data-val') === value) {{
+                        btn.classList.remove(outlineClass);
+                        btn.classList.add(activeClass);
+                    }} else {{
+                        btn.classList.remove(activeClass);
+                        btn.classList.add(outlineClass);
+                    }}
+                }});
+            }}
+
+            function syncAndFilter(mode, value, btn) {{
+                if (mode === 'tipo') {{
+                    filterT = value;
+                    highlightButtons('group-tipo-fs', value, (value==='none'?'btn-secondary':'btn-primary'), (value==='none'?'btn-outline-secondary':'btn-outline-light'));
+                    highlightButtons('group-tipo-main', value, (value==='none'?'btn-secondary':'btn-primary'), (value==='none'?'btn-outline-secondary':'btn-outline-primary'));
+                }} else {{
+                    filterC = value;
+                    highlightButtons('group-color-fs', value, 'btn-success', 'btn-outline-light');
+                    highlightButtons('group-color-main', value, 'btn-success', 'btn-outline-success');
+                }}
                 drawPoints();
+            }}
+
+            function updateFilters(mode, value, btn) {{
+                syncAndFilter(mode, value, btn);
             }}
 
             function getContrastColor(hex) {{
@@ -325,20 +351,6 @@ if xml_file and img_file:
                 container.innerHTML = html;
             }}
 
-            function updateFilters(m, v, b) {{
-                const p = b.parentElement;
-                p.querySelectorAll('.btn').forEach(x => {{
-                    x.classList.replace('btn-primary', 'btn-outline-primary');
-                    x.classList.replace('btn-success', 'btn-outline-success');
-                    x.classList.replace('btn-secondary', 'btn-outline-secondary');
-                }});
-                const activeClass = (v === 'none') ? 'btn-secondary' : (m === 'tipo' ? 'btn-primary' : 'btn-success');
-                b.classList.replace(b.classList.contains('btn-outline-primary')?'btn-outline-primary':(b.classList.contains('btn-outline-success')?'btn-outline-success':'btn-outline-secondary'), activeClass);
-                
-                if (m === 'tipo') filterT = v; else filterC = v;
-                drawPoints();
-            }}
-
             function toggleFS() {{
                 const el = document.getElementById("workspace");
                 if (!document.fullscreenElement) {{
@@ -356,4 +368,4 @@ if xml_file and img_file:
     </html>
     """
     st.divider()
-    st.download_button(label="📥 DESCARGAR REPORTE CON FILTROS A LA DERECHA", data=html_report, file_name=f"{titulo_final}.html", mime="text/html")
+    st.download_button(label="📥 DESCARGAR REPORTE CON FILTROS INTELIGENTES", data=html_report, file_name=f"{titulo_final}.html", mime="text/html")
