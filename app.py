@@ -113,19 +113,24 @@ if xml_file and img_file:
             .custom-nav {{ position: absolute; top: 125px; left: 15px; z-index: 1005; display: flex; flex-direction: column; gap: 8px; }}
             .btn-fs {{ position: absolute; top: 125px; right: 15px; z-index: 1005; background: #fff; border: 2px solid #2c3e50; padding: 8px 16px; border-radius: 20px; font-weight: bold; cursor: pointer; }}
 
-            /* SIDEBAR PARA PANTALLA COMPLETA */
+            /* SIDEBAR DERECHO PARA PANTALLA COMPLETA */
             #fs-sidebar {{
-                position: absolute; top: 0; left: -320px; width: 300px; height: 100%;
+                position: absolute; top: 0; right: -320px; width: 300px; height: 100%;
                 background: rgba(44, 62, 80, 0.95); backdrop-filter: blur(10px);
                 z-index: 3000; transition: 0.3s ease; padding: 25px; color: white;
-                box-shadow: 5px 0 15px rgba(0,0,0,0.5); overflow-y: auto;
+                box-shadow: -5px 0 15px rgba(0,0,0,0.5); overflow-y: auto;
             }}
-            #fs-sidebar.active {{ left: 0; }}
+            #fs-sidebar.active {{ right: 0; }}
+            
+            /* BOTÓN DE FILTROS AJUSTADO AL LADO DERECHO Y DINÁMICO */
             #toggle-sidebar-btn {{
-                position: absolute; top: 185px; left: 15px; z-index: 1005;
+                position: absolute; top: 185px; right: 15px; z-index: 3001;
                 background: #1abc9c; color: white; border: 2px solid white;
                 padding: 10px; border-radius: 8px; font-weight: bold; display: none; cursor: pointer;
+                transition: right 0.3s ease;
             }}
+            #fs-sidebar.active ~ #toggle-sidebar-btn {{ right: 315px; }} /* Se mueve con el panel */
+            
             #workspace:fullscreen #toggle-sidebar-btn {{ display: block; }}
 
             .sidebar-section-title {{ font-size: 12px; font-weight: bold; color: #1abc9c; letter-spacing: 1px; margin-bottom: 15px; border-bottom: 1px solid #3e5871; padding-bottom: 5px; }}
@@ -145,7 +150,7 @@ if xml_file and img_file:
             .total-banner {{ background: #2c3e50; color: white; padding: 20px; border-radius: 8px; text-align: center; font-size: 1.5rem; font-weight: bold; margin-top: 25px; }}
             .filter-section {{ background: white; padding: 15px; border-radius: 12px; margin: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }}
             
-            .fs-close-btn {{ float: right; cursor: pointer; font-size: 24px; }}
+            .fs-close-btn {{ float: left; cursor: pointer; font-size: 24px; margin-bottom: 10px; }}
         </style>
     </head>
     <body>
@@ -168,6 +173,7 @@ if xml_file and img_file:
         <div id="workspace">
             <div id="fs-sidebar">
                 <span class="fs-close-btn" onclick="toggleFsSidebar()">×</span>
+                <div style="clear:both;"></div>
                 <h5 class="mb-4">🔍 Filtros de Inspección</h5>
                 
                 <div class="sidebar-section-title">TIPO DE COMPONENTE</div>
@@ -186,14 +192,15 @@ if xml_file and img_file:
 
             <div id="info-bar">Selecciona un punto para ver su detalle</div>
             
-            <button id="toggle-sidebar-btn" onclick="toggleFsSidebar()">☰ Filtros</button>
-            
             <div class="custom-nav">
                 <div id="btn-in" class="nav-btn btn-zoom-in">+</div>
                 <div id="btn-out" class="nav-btn btn-zoom-out">−</div>
                 <div id="btn-home" class="nav-btn btn-home">🏠</div>
             </div>
+            
+            <button id="toggle-sidebar-btn" onclick="toggleFsSidebar()">☰ Filtros</button>
             <button class="btn-fs" onclick="toggleFS()">📺 Pantalla Completa</button>
+            
             <div id="viewer-container"></div>
         </div>
 
@@ -232,11 +239,8 @@ if xml_file and img_file:
             }}
 
             function syncAndFilter(mode, value) {{
-                // Esta función sincroniza el filtro del sidebar con la lógica general
                 if (mode === 'tipo') filterT = value; else filterC = value;
                 drawPoints();
-                // Opcional: Cerrar sidebar tras elegir (puedes comentarlo si prefieres que siga abierto)
-                // toggleFsSidebar(); 
             }}
 
             function getContrastColor(hex) {{
@@ -322,7 +326,6 @@ if xml_file and img_file:
             }}
 
             function updateFilters(m, v, b) {{
-                // Lógica de botones de la vista principal
                 const p = b.parentElement;
                 p.querySelectorAll('.btn').forEach(x => {{
                     x.classList.replace('btn-primary', 'btn-outline-primary');
@@ -353,4 +356,4 @@ if xml_file and img_file:
     </html>
     """
     st.divider()
-    st.download_button(label="📥 DESCARGAR REPORTE CON SIDEBAR INMERSIVO", data=html_report, file_name=f"{titulo_final}.html", mime="text/html")
+    st.download_button(label="📥 DESCARGAR REPORTE CON FILTROS A LA DERECHA", data=html_report, file_name=f"{titulo_final}.html", mime="text/html")
