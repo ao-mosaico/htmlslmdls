@@ -113,7 +113,7 @@ if xml_file and img_file:
             .custom-nav {{ position: absolute; top: 125px; left: 15px; z-index: 1005; display: flex; flex-direction: column; gap: 8px; }}
             .btn-fs {{ position: absolute; top: 125px; right: 15px; z-index: 1005; background: #fff; border: 2px solid #2c3e50; padding: 8px 16px; border-radius: 20px; font-weight: bold; cursor: pointer; }}
 
-            /* SIDEBAR DERECHO PARA PANTALLA COMPLETA */
+            /* SIDEBAR DERECHO */
             #fs-sidebar {{
                 position: absolute; top: 0; right: -320px; width: 300px; height: 100%;
                 background: rgba(44, 62, 80, 0.95); backdrop-filter: blur(10px);
@@ -129,8 +129,10 @@ if xml_file and img_file:
                 transition: right 0.3s ease;
             }}
             #fs-sidebar.active ~ #toggle-sidebar-btn {{ right: 315px; }} 
-            
             #workspace:fullscreen #toggle-sidebar-btn {{ display: block; }}
+
+            /* ESTILO BOTONES SELECCIONADOS - TEXTO BLANCO */
+            .btn-primary, .btn-success, .btn-secondary {{ color: white !important; }}
 
             .sidebar-section-title {{ font-size: 12px; font-weight: bold; color: #1abc9c; letter-spacing: 1px; margin-bottom: 15px; border-bottom: 1px solid #3e5871; padding-bottom: 5px; }}
             .nav-btn {{ width: 44px; height: 44px; border-radius: 8px; border: 2px solid white; color: white; font-size: 22px; font-weight: bold; display: flex; align-items: center; justify-content: center; cursor: pointer; }}
@@ -138,7 +140,6 @@ if xml_file and img_file:
             .btn-zoom-out {{ background: #ffb7c5 !important; color: #333 !important; }}
             .btn-home {{ background: #3498db !important; }}
 
-            /* APARIENCIA DE PUNTOS */
             .dot {{ width: 14px; height: 14px; border-radius: 50%; border: none; opacity: 0.7; cursor: pointer; transition: transform 0.2s, opacity 0.2s; }}
             .dot.selected {{ opacity: 1 !important; border: 3px solid #fff !important; box-shadow: 0 0 15px #fff; transform: scale(1.6); z-index: 999 !important; }}
 
@@ -200,7 +201,6 @@ if xml_file and img_file:
             
             <button id="toggle-sidebar-btn" onclick="toggleFsSidebar()">☰ Filtros</button>
             <button class="btn-fs" onclick="toggleFS()">📺 Pantalla Completa</button>
-            
             <div id="viewer-container"></div>
         </div>
 
@@ -238,16 +238,14 @@ if xml_file and img_file:
                 document.getElementById('fs-sidebar').classList.toggle('active');
             }}
 
-            // Lógica unificada para iluminar botones
             function highlightButtons(groupId, value, activeClass, outlineClass) {{
                 const container = document.getElementById(groupId);
                 container.querySelectorAll('.btn').forEach(btn => {{
-                    if (btn.getAttribute('data-val') === value) {{
-                        btn.classList.remove(outlineClass);
-                        btn.classList.add(activeClass);
+                    const btnVal = btn.getAttribute('data-val');
+                    if (btnVal === value) {{
+                        btn.className = 'btn btn-sm ' + activeClass + (groupId.includes('fs') ? ' btn-filter-fs' : ' rounded-pill px-3 mx-1');
                     }} else {{
-                        btn.classList.remove(activeClass);
-                        btn.classList.add(outlineClass);
+                        btn.className = 'btn btn-sm ' + outlineClass + (groupId.includes('fs') ? ' btn-filter-fs' : ' rounded-pill px-3 mx-1');
                     }}
                 }});
             }}
@@ -255,19 +253,22 @@ if xml_file and img_file:
             function syncAndFilter(mode, value, btn) {{
                 if (mode === 'tipo') {{
                     filterT = value;
-                    highlightButtons('group-tipo-fs', value, (value==='none'?'btn-secondary':'btn-primary'), (value==='none'?'btn-outline-secondary':'btn-outline-light'));
-                    highlightButtons('group-tipo-main', value, (value==='none'?'btn-secondary':'btn-primary'), (value==='none'?'btn-outline-secondary':'btn-outline-primary'));
+                    // Lógica exclusión "Ninguno":
+                    const activeT = (value === 'none') ? 'btn-secondary' : 'btn-primary';
+                    const outlineT = (value === 'none') ? 'btn-outline-secondary' : 'btn-outline-primary';
+                    const outlineFs = (value === 'none') ? 'btn-outline-secondary' : 'btn-outline-light';
+                    
+                    highlightButtons('group-tipo-main', value, activeT, outlineT);
+                    highlightButtons('group-tipo-fs', value, activeT, outlineFs);
                 }} else {{
                     filterC = value;
-                    highlightButtons('group-color-fs', value, 'btn-success', 'btn-outline-light');
                     highlightButtons('group-color-main', value, 'btn-success', 'btn-outline-success');
+                    highlightButtons('group-color-fs', value, 'btn-success', 'btn-outline-light');
                 }}
                 drawPoints();
             }}
 
-            function updateFilters(mode, value, btn) {{
-                syncAndFilter(mode, value, btn);
-            }}
+            function updateFilters(mode, value, btn) {{ syncAndFilter(mode, value, btn); }}
 
             function getContrastColor(hex) {{
                 if (hex.indexOf('#') === 0) hex = hex.slice(1);
@@ -287,38 +288,26 @@ if xml_file and img_file:
             function drawPoints() {{
                 viewer.clearOverlays();
                 const bar = document.getElementById('info-bar');
-                
                 if (filterT === 'none') {{
                     bar.innerHTML = "MODO DE INSPECCIÓN: PUNTOS OCULTOS";
-                    bar.style.backgroundColor = "#f8f9fa";
-                    bar.style.color = "#2c3e50";
-                    renderSummary([]);
-                    return;
-                }} else {{
-                    bar.innerHTML = "Selecciona un punto para ver su detalle";
-                    bar.style.backgroundColor = "#f8f9fa";
-                    bar.style.color = "#2c3e50";
+                    bar.style.backgroundColor = "#f8f9fa"; bar.style.color = "#2c3e50";
+                    renderSummary([]); return;
                 }}
+                bar.innerHTML = "Selecciona un punto para ver su detalle";
+                bar.style.backgroundColor = "#f8f9fa"; bar.style.color = "#2c3e50";
 
-                const filtered = puntos.filter(p => {{
-                    return (filterT === 'all' || p.tipo === filterT) && (filterC === 'all' || p.color_norm === filterC);
-                }});
-                
+                const filtered = puntos.filter(p => (filterT === 'all' || p.tipo === filterT) && (filterC === 'all' || p.color_norm === filterC));
                 filtered.forEach(p => {{
                     const elt = document.createElement("div");
-                    elt.className = "dot";
-                    elt.style.backgroundColor = p.color_plot;
-                    
+                    elt.className = "dot"; elt.style.backgroundColor = p.color_plot;
                     elt.addEventListener('pointerdown', (e) => {{
                         e.stopPropagation();
                         if(lastSelected) lastSelected.classList.remove('selected');
-                        elt.classList.add('selected'); 
-                        lastSelected = elt;
+                        elt.classList.add('selected'); lastSelected = elt;
                         bar.style.backgroundColor = p.color_plot;
                         bar.style.color = getContrastColor(p.color_plot);
                         bar.innerHTML = "SELECCIONADO: " + p.tipo.toUpperCase() + " | " + p.color_norm.replace(/_/g, ' ').toUpperCase() + " (" + p.tamaño + ")";
                     }});
-                    
                     viewer.addOverlay({{ element: elt, location: new OpenSeadragon.Point(p.x/imgW, p.y/imgW), placement: 'CENTER' }});
                 }});
                 renderSummary(filtered);
@@ -326,25 +315,19 @@ if xml_file and img_file:
 
             function renderSummary(data) {{
                 const container = document.getElementById('tables-output');
-                const groups = {{}};
-                let totalGral = 0;
+                const groups = {{}}; let totalGral = 0;
                 const summaryData = (filterT === 'none') ? puntos : data;
-
                 summaryData.forEach(p => {{
                     totalGral++;
                     if(!groups[p.tipo]) groups[p.tipo] = {{}};
                     const key = p.color_norm.replace(/_/g, ' ').toUpperCase() + " (" + p.tamaño + ")";
                     groups[p.tipo][key] = (groups[p.tipo][key] || 0) + 1;
                 }});
-
                 let html = '<h4 class="fw-bold mb-4">RESUMEN DE COMPONENTES</h4>';
                 for(let t in groups) {{
                     let subtotal = Object.values(groups[t]).reduce((a, b) => a + b, 0);
-                    html += '<div class="category-row"><span>' + t.toUpperCase() + '</span><span class="badge bg-primary">' + subtotal + ' pz</span></div>';
-                    html += '<table class="item-table"><tbody>';
-                    for(let k in groups[t]) {{
-                        html += '<tr><td>' + k + '</td><td class="text-end fw-bold">' + groups[t][k] + ' pz</td></tr>';
-                    }}
+                    html += '<div class="category-row"><span>' + t.toUpperCase() + '</span><span class="badge bg-primary">' + subtotal + ' pz</span></div><table class="item-table"><tbody>';
+                    for(let k in groups[t]) html += '<tr><td>' + k + '</td><td class="text-end fw-bold">' + groups[t][k] + ' pz</td></tr>';
                     html += '</tbody></table>';
                 }}
                 html += '<div class="total-banner">CANTIDAD TOTAL: ' + totalGral + ' PIEZAS</div>';
@@ -353,11 +336,7 @@ if xml_file and img_file:
 
             function toggleFS() {{
                 const el = document.getElementById("workspace");
-                if (!document.fullscreenElement) {{
-                    el.requestFullscreen().catch(err => {{ alert("Error: " + err.message); }});
-                }} else {{
-                    document.exitFullscreen();
-                }}
+                if (!document.fullscreenElement) el.requestFullscreen(); else document.exitFullscreen();
             }}
 
             document.getElementById('btn-in').onclick = () => viewer.viewport.zoomBy(1.4);
@@ -368,4 +347,5 @@ if xml_file and img_file:
     </html>
     """
     st.divider()
-    st.download_button(label="📥 DESCARGAR REPORTE CON FILTROS INTELIGENTES", data=html_report, file_name=f"{titulo_final}.html", mime="text/html")
+    st.download_button(label="📥 DESCARGAR REPORTE FINAL CORREGIDO", data=html_report, file_name=f"{titulo_final}.html", mime="text/html")
+
