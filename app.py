@@ -70,6 +70,7 @@ if xml_file and img_file:
                 tamaño_defecto = ""
                 if tipo == "microperla": tamaño_defecto = "pp01"
                 elif tipo == "marquiz": tamaño_defecto = "6x3mm"
+                elif tipo == "cristal": tamaño_defecto = "ss18"
 
                 rows.append({
                     "x": x, "y": y, "tipo": tipo, 
@@ -138,17 +139,45 @@ if xml_file and img_file:
             #fs-sidebar.active ~ #toggle-sidebar-btn {{ right: 315px; }} 
             #workspace:fullscreen #toggle-sidebar-btn {{ display: block; }}
 
-            /* ESTILO BOTONES SELECCIONADOS - TEXTO BLANCO */
+            /* ESTILO BOTONES Y PUNTOS */
             .btn-primary, .btn-success, .btn-secondary {{ color: white !important; }}
-
             .sidebar-section-title {{ font-size: 12px; font-weight: bold; color: #1abc9c; letter-spacing: 1px; margin-bottom: 15px; border-bottom: 1px solid #3e5871; padding-bottom: 5px; }}
             .nav-btn {{ width: 44px; height: 44px; border-radius: 8px; border: 2px solid white; color: white; font-size: 22px; font-weight: bold; display: flex; align-items: center; justify-content: center; cursor: pointer; }}
             .btn-zoom-in {{ background: #1abc9c !important; }}
             .btn-zoom-out {{ background: #ffb7c5 !important; color: #333 !important; }}
             .btn-home {{ background: #3498db !important; }}
+            .btn-diagrama {{ background: #f39c12 !important; font-size: 20px; }}
 
             .dot {{ width: 14px; height: 14px; border-radius: 50%; border: none; opacity: 0.7; cursor: pointer; transition: transform 0.2s, opacity 0.2s; }}
             .dot.selected {{ opacity: 1 !important; border: 3px solid #fff !important; box-shadow: 0 0 15px #fff; transform: scale(1.6); z-index: 999 !important; }}
+
+            /* ETIQUETAS DEL MODO DIAGRAMA */
+            .diagram-label {{
+                background: rgba(255, 255, 255, 0.95);
+                padding: 6px 12px;
+                border-radius: 6px;
+                font-size: 12px;
+                font-weight: bold;
+                color: #2c3e50;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+                pointer-events: none;
+                white-space: nowrap;
+                margin-left: 20px;
+                position: relative;
+                border-left: 5px solid #000;
+                font-family: monospace;
+            }}
+            .diagram-label::before {{
+                content: '';
+                position: absolute;
+                left: -20px;
+                top: 50%;
+                transform: translateY(-50%);
+                width: 20px;
+                height: 2px;
+                background: #fff;
+                border-top: 1px solid #000;
+            }}
 
             .report-container {{ position: relative; z-index: 1; background: #f4f7f6; padding-top: 20px; }}
             .summary-card {{ background: white; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); padding: 25px; margin-bottom: 40px; }}
@@ -157,7 +186,6 @@ if xml_file and img_file:
             .item-table td {{ padding: 10px 15px; border-bottom: 1px solid #eee; }}
             .total-banner {{ background: #2c3e50; color: white; padding: 20px; border-radius: 8px; text-align: center; font-size: 1.5rem; font-weight: bold; margin-top: 25px; }}
             .filter-section {{ background: white; padding: 15px; border-radius: 12px; margin: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }}
-            
             .fs-close-btn {{ float: left; cursor: pointer; font-size: 24px; margin-bottom: 10px; }}
         </style>
     </head>
@@ -204,6 +232,7 @@ if xml_file and img_file:
                 <div id="btn-in" class="nav-btn btn-zoom-in">+</div>
                 <div id="btn-out" class="nav-btn btn-zoom-out">−</div>
                 <div id="btn-home" class="nav-btn btn-home">🏠</div>
+                <div id="btn-diagrama" class="nav-btn btn-diagrama" title="Activar Modo Diagrama">📊</div>
             </div>
             
             <button id="toggle-sidebar-btn" onclick="toggleFsSidebar()">☰ Filtros</button>
@@ -233,6 +262,7 @@ if xml_file and img_file:
             }});
 
             let filterT = 'all', filterC = 'all', lastSelected = null;
+            let diagramMode = false;
 
             document.addEventListener('fullscreenchange', () => {{
                 if (!document.fullscreenElement) {{
@@ -260,7 +290,6 @@ if xml_file and img_file:
             function syncAndFilter(mode, value, btn) {{
                 if (mode === 'tipo') {{
                     filterT = value;
-                    // Lógica exclusión "Ninguno":
                     const activeT = (value === 'none') ? 'btn-secondary' : 'btn-primary';
                     const outlineT = (value === 'none') ? 'btn-outline-secondary' : 'btn-outline-primary';
                     const outlineFs = (value === 'none') ? 'btn-outline-secondary' : 'btn-outline-light';
@@ -304,6 +333,8 @@ if xml_file and img_file:
                 bar.style.backgroundColor = "#f8f9fa"; bar.style.color = "#2c3e50";
 
                 const filtered = puntos.filter(p => (filterT === 'all' || p.tipo === filterT) && (filterC === 'all' || p.color_norm === filterC));
+                
+                // Dibujar puntos
                 filtered.forEach(p => {{
                     const elt = document.createElement("div");
                     elt.className = "dot"; elt.style.backgroundColor = p.color_plot;
@@ -317,6 +348,36 @@ if xml_file and img_file:
                     }});
                     viewer.addOverlay({{ element: elt, location: new OpenSeadragon.Point(p.x/imgW, p.y/imgW), placement: 'CENTER' }});
                 }});
+
+                // Lógica del MODO DIAGRAMA
+                if (diagramMode) {{
+                    const groups = {{}};
+                    filtered.forEach(p => {{
+                        const key = p.tipo.toUpperCase() + " " + p.color_norm.replace(/_/g, ' ').toUpperCase() + " " + p.tamaño;
+                        if (!groups[key]) groups[key] = {{ count: 0, points: [], color: p.color_plot }};
+                        groups[key].count++;
+                        groups[key].points.push(p);
+                    }});
+
+                    for (let k in groups) {{
+                        let g = groups[k];
+                        // Anclamos la etiqueta al punto más a la derecha del grupo para que apunte hacia afuera
+                        let anchor = g.points.reduce((prev, curr) => (curr.x > prev.x) ? curr : prev);
+                        
+                        const lbl = document.createElement("div");
+                        lbl.className = "diagram-label";
+                        lbl.style.borderLeftColor = g.color;
+                        lbl.innerHTML = `<span style="color:${{g.color}}; font-size:16px;">●</span> <b>${{g.count}}</b> ${{k}}`;
+
+                        viewer.addOverlay({{
+                            element: lbl,
+                            location: new OpenSeadragon.Point(anchor.x/imgW, anchor.y/imgW),
+                            placement: 'RIGHT',
+                            checkResize: false
+                        }});
+                    }}
+                }}
+
                 renderSummary(filtered);
             }}
 
@@ -349,10 +410,18 @@ if xml_file and img_file:
             document.getElementById('btn-in').onclick = () => viewer.viewport.zoomBy(1.4);
             document.getElementById('btn-out').onclick = () => viewer.viewport.zoomBy(0.7);
             document.getElementById('btn-home').onclick = () => viewer.viewport.goHome();
+            
+            // Evento para el botón de Diagrama
+            document.getElementById('btn-diagrama').onclick = () => {{
+                diagramMode = !diagramMode;
+                document.getElementById('btn-diagrama').style.background = diagramMode ? '#e74c3c' : '#f39c12';
+                drawPoints();
+            }};
         </script>
     </body>
     </html>
     """
     st.divider()
     st.download_button(label="📥 DESCARGAR REPORTE FINAL CORREGIDO", data=html_report, file_name=f"{titulo_final}.html", mime="text/html")
+
 
