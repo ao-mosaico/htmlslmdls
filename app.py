@@ -334,7 +334,7 @@ if xml_file and img_file:
 
                 const filtered = puntos.filter(p => (filterT === 'all' || p.tipo === filterT) && (filterC === 'all' || p.color_norm === filterC));
                 
-                // Dibujar puntos
+                // 1. Dibujar todos los puntos normalmente
                 filtered.forEach(p => {{
                     const elt = document.createElement("div");
                     elt.className = "dot"; elt.style.backgroundColor = p.color_plot;
@@ -349,31 +349,70 @@ if xml_file and img_file:
                     viewer.addOverlay({{ element: elt, location: new OpenSeadragon.Point(p.x/imgW, p.y/imgW), placement: 'CENTER' }});
                 }});
 
-                // Lógica del MODO DIAGRAMA
+                // 2. Lógica del MODO DIAGRAMA (Agrupamiento Espacial)
                 if (diagramMode) {{
-                    const groups = {{}};
+                    const groupsByType = {{}};
+                    
+                    // Separar puntos por tipo+color+tamaño
                     filtered.forEach(p => {{
                         const key = p.tipo.toUpperCase() + " " + p.color_norm.replace(/_/g, ' ').toUpperCase() + " " + p.tamaño;
-                        if (!groups[key]) groups[key] = {{ count: 0, points: [], color: p.color_plot }};
-                        groups[key].count++;
-                        groups[key].points.push(p);
+                        if (!groupsByType[key]) groupsByType[key] = [];
+                        groupsByType[key].push(p);
                     }});
 
-                    for (let k in groups) {{
-                        let g = groups[k];
-                        // Anclamos la etiqueta al punto más a la derecha del grupo para que apunte hacia afuera
-                        let anchor = g.points.reduce((prev, curr) => (curr.x > prev.x) ? curr : prev);
-                        
-                        const lbl = document.createElement("div");
-                        lbl.className = "diagram-label";
-                        lbl.style.borderLeftColor = g.color;
-                        lbl.innerHTML = `<span style="color:${{g.color}}; font-size:16px;">●</span> <b>${{g.count}}</b> ${{k}}`;
+                    // Distancia máxima para considerar que dos puntos están en el mismo grupo (10% del ancho de la imagen)
+                    const DISTANCE_THRESHOLD = 0.10; 
 
-                        viewer.addOverlay({{
-                            element: lbl,
-                            location: new OpenSeadragon.Point(anchor.x/imgW, anchor.y/imgW),
-                            placement: 'RIGHT',
-                            checkResize: false
+                    for (let k in groupsByType) {{
+                        let points = groupsByType[k];
+                        let clusters = []; // Subgrupos espaciales
+
+                        // Agrupar puntos cercanos
+                        points.forEach(p => {{
+                            let pX = p.x / imgW;
+                            let pY = p.y / imgW;
+                            let addedToCluster = false;
+                            
+                            for (let i = 0; i < clusters.length; i++) {{
+                                let cluster = clusters[i];
+                                // Revisar si este punto está cerca de algún punto que ya está en el cluster
+                                for (let cp of cluster.points) {{
+                                    let cpX = cp.x / imgW;
+                                    let cpY = cp.y / imgW;
+                                    let dist = Math.sqrt(Math.pow(pX - cpX, 2) + Math.pow(pY - cpY, 2));
+                                    
+                                    if (dist < DISTANCE_THRESHOLD) {{
+                                        cluster.points.push(p);
+                                        addedToCluster = true;
+                                        break;
+                                    }}
+                                }}
+                                if (addedToCluster) break;
+                            }}
+                            
+                            // Si no estaba cerca de ningún cluster existente, crear uno nuevo
+                            if (!addedToCluster) {{
+                                clusters.push({{ points: [p], color: p.color_plot }});
+                            }}
+                        }});
+
+                        // Dibujar las etiquetas para cada cluster individual
+                        clusters.forEach(cluster => {{
+                            let count = cluster.points.length;
+                            // Anclar la etiqueta al punto más a la derecha del cluster
+                            let anchor = cluster.points.reduce((prev, curr) => (curr.x > prev.x) ? curr : prev);
+                            
+                            const lbl = document.createElement("div");
+                            lbl.className = "diagram-label";
+                            lbl.style.borderLeftColor = cluster.color;
+                            lbl.innerHTML = `<span style="color:${{cluster.color}}; font-size:16px;">●</span> <b>${{count}}</b> ${{k}}`;
+
+                            viewer.addOverlay({{
+                                element: lbl,
+                                location: new OpenSeadragon.Point(anchor.x/imgW, anchor.y/imgW),
+                                placement: 'RIGHT',
+                                checkResize: false
+                            }});
                         }});
                     }}
                 }}
