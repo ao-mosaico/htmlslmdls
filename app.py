@@ -17,7 +17,7 @@ COLOR_CATALOG = {
     "ab_rose": "lightpink", "ab_zafiro": "deepskyblue",
     "aguamarina": "turquoise", "amatista": "purple",
     "black_diamond": "black", "blue_zircon": "darkturquoise",
-    "cristal": "silver", "fuschia": "fuchsia", "jet": "black",
+    "cristal": "silver", "fuschia": "fuchsia", "fuschua": "fuchsia", "jet": "black",
     "jonquil": "gold", "opal_blue_zircone": "skyblue",
     "opal_green": "lightgreen", "peridot": "limegreen",
     "rose": "pink", "siam": "crimson", "topaz": "orange",
@@ -28,7 +28,8 @@ COLOR_CATALOG = {
     "mauva": "#E0B0FF", "lilac": "#C8A2C8", "azul_purpura": "#8A2BE2",
     "orquida": "#DA70D6", "purpura": "#800080", "salmon": "#FA8072",
     "gris": "#808080", "azul_agua": "#00FFFF", "verde_jade": "#00A86B",
-    "morado": "#7A288A", "otro": "#D3D3D3"
+    "morado": "#7A288A", "otro": "#D3D3D3",
+    "vitral": "#9370DB", "ab_tanzanita": "#483D8B"
 }
 
 def normalizar_color(c):
@@ -38,7 +39,7 @@ def normalizar_color(c):
 def ajustar_color_por_tipo(row):
     tipo = str(row["tipo"]).lower()
     color = row["color_norm"]
-    if tipo == "microperla": return color if color in COLOR_CATALOG else "otro"
+    if tipo == "microperla" or tipo == "marquiz": return color if color in COLOR_CATALOG else "otro"
     if tipo == "dicroico":
         if color in ["gmb_morado", "rsb_azul", "rsb/gbm_subl"]: return color
         return "gmb_morado"
@@ -64,10 +65,16 @@ if xml_file and img_file:
             attrs = {a.attrib["name"]: a.text for a in points.findall("attribute")}
             for c in coords:
                 x, y = map(float, c.split(","))
+                
+                # Asignación de tamaño por defecto según el tipo
+                tamaño_defecto = ""
+                if tipo == "microperla": tamaño_defecto = "pp01"
+                elif tipo == "marquiz": tamaño_defecto = "6x3mm"
+
                 rows.append({
                     "x": x, "y": y, "tipo": tipo, 
                     "color_norm": normalizar_color(attrs.get("color", "")), 
-                    "tamaño": attrs.get("tamaño", "pp01" if tipo == "microperla" else ""),
+                    "tamaño": attrs.get("tamaño", tamaño_defecto),
                     "color_plot": COLOR_CATALOG.get(normalizar_color(attrs.get("color", "")), "gray")
                 })
     
