@@ -8,7 +8,8 @@ from io import BytesIO
 # =========================================================
 # CONFIGURACIÓN Y CATÁLOGO
 # =========================================================
-st.set_page_config(page_title="Gestor de Mosaicos Pro", layout="wide")
+# Se agregó initial_sidebar_state="expanded" para mantener el panel abierto
+st.set_page_config(page_title="Gestor de Mosaicos Pro", layout="wide", initial_sidebar_state="expanded")
 
 COLOR_CATALOG = {
     "plata": "silver", "dorado": "gold", "rosa": "pink",
@@ -53,6 +54,18 @@ st.sidebar.title("💎 Panel de Control")
 nombre_modelo = st.sidebar.text_input("Nombre del Modelo", placeholder="Ej: PB-8612 A")
 xml_file = st.sidebar.file_uploader("1. Subir XML", type=["xml"])
 img_file = st.sidebar.file_uploader("2. Subir Imagen", type=["jpg", "png", "jpeg"])
+
+st.sidebar.divider()
+st.sidebar.subheader("Ajustes del Reporte")
+# Nuevo slider para controlar el agrupamiento
+sensibilidad_cluster = st.sidebar.slider(
+    "Sensibilidad de Agrupamiento (%)", 
+    min_value=1, 
+    max_value=50, 
+    value=10, 
+    step=1,
+    help="Define qué tan cerca deben estar las piezas para contarse juntas en el Modo Diagrama. Auméntalo si las etiquetas se enciman."
+)
 
 if xml_file and img_file:
     tree = ET.parse(xml_file)
@@ -151,7 +164,7 @@ if xml_file and img_file:
             .dot {{ width: 14px; height: 14px; border-radius: 50%; border: none; opacity: 0.7; cursor: pointer; transition: transform 0.2s, opacity 0.2s; }}
             .dot.selected {{ opacity: 1 !important; border: 3px solid #fff !important; box-shadow: 0 0 15px #fff; transform: scale(1.6); z-index: 999 !important; }}
 
-            /* ETIQUETAS DEL MODO DIAGRAMA */
+            /* ETIQUETAS DEL MODO DIAGRAMA (Rayita removida) */
             .diagram-label {{
                 background: rgba(255, 255, 255, 0.95);
                 padding: 6px 12px;
@@ -162,21 +175,9 @@ if xml_file and img_file:
                 box-shadow: 0 4px 12px rgba(0,0,0,0.4);
                 pointer-events: none;
                 white-space: nowrap;
-                margin-left: 20px;
                 position: relative;
                 border-left: 5px solid #000;
                 font-family: monospace;
-            }}
-            .diagram-label::before {{
-                content: '';
-                position: absolute;
-                left: -20px;
-                top: 50%;
-                transform: translateY(-50%);
-                width: 20px;
-                height: 2px;
-                background: #fff;
-                border-top: 1px solid #000;
             }}
 
             .report-container {{ position: relative; z-index: 1; background: #f4f7f6; padding-top: 20px; }}
@@ -220,247 +221,6 @@ if xml_file and img_file:
                 </div>
 
                 <div class="sidebar-section-title">FILTRAR POR COLOR</div>
-                <div class="d-grid gap-2" id="group-color-fs">
-                    <button class="btn btn-success btn-sm btn-filter-fs" data-val="all" onclick="syncAndFilter('color', 'all', this)">TODOS LOS COLORES</button>
-                    {' '.join([f'<button class="btn btn-outline-light btn-sm btn-filter-fs" style="text-align: left;" data-val="{c}" onclick="syncAndFilter(\'color\', \'{c}\', this)"><span style="display:inline-block;width:10px;height:10px;background:{COLOR_CATALOG.get(c, "gray")};margin-right:8px;border-radius:50%"></span>{c.replace("_", " ").upper()}</button>' for c in colores_unicos])}
-                </div>
-            </div>
-
-            <div id="info-bar">Selecciona un punto para ver su detalle</div>
-            
-            <div class="custom-nav">
-                <div id="btn-in" class="nav-btn btn-zoom-in">+</div>
-                <div id="btn-out" class="nav-btn btn-zoom-out">−</div>
-                <div id="btn-home" class="nav-btn btn-home">🏠</div>
-                <div id="btn-diagrama" class="nav-btn btn-diagrama" title="Activar Modo Diagrama">📊</div>
-            </div>
-            
-            <button id="toggle-sidebar-btn" onclick="toggleFsSidebar()">☰ Filtros</button>
-            <button class="btn-fs" onclick="toggleFS()">📺 Pantalla Completa</button>
-            <div id="viewer-container"></div>
-        </div>
-
-        <div class="container-fluid report-container">
-            <div class="summary-card" id="tables-output"></div>
-        </div>
-
-        <script>
-            const puntos = {puntos_json};
-            const imgW = {width};
-            
-            const viewer = OpenSeadragon({{
-                id: "viewer-container",
-                prefixUrl: "https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/images/",
-                tileSources: {{ type: 'image', url: '{data_uri}' }},
-                showNavigationControl: false,
-                maxZoomLevel: 80,
-                minZoomImageRatio: 1.0,
-                visibilityRatio: 1.0,
-                constrainDuringPan: true,
-                gestureSettingsTouch: {{ clickToZoom: false, dblClickToZoom: false }},
-                gestureSettingsMouse: {{ clickToZoom: false, dblClickToZoom: false }}
-            }});
-
-            let filterT = 'all', filterC = 'all', lastSelected = null;
-            let diagramMode = false;
-
-            document.addEventListener('fullscreenchange', () => {{
-                if (!document.fullscreenElement) {{
-                    document.getElementById('fs-sidebar').classList.remove('active');
-                }}
-                setTimeout(() => {{ viewer.viewport.goHome(); }}, 100);
-            }});
-
-            function toggleFsSidebar() {{
-                document.getElementById('fs-sidebar').classList.toggle('active');
-            }}
-
-            function highlightButtons(groupId, value, activeClass, outlineClass) {{
-                const container = document.getElementById(groupId);
-                container.querySelectorAll('.btn').forEach(btn => {{
-                    const btnVal = btn.getAttribute('data-val');
-                    if (btnVal === value) {{
-                        btn.className = 'btn btn-sm ' + activeClass + (groupId.includes('fs') ? ' btn-filter-fs' : ' rounded-pill px-3 mx-1');
-                    }} else {{
-                        btn.className = 'btn btn-sm ' + outlineClass + (groupId.includes('fs') ? ' btn-filter-fs' : ' rounded-pill px-3 mx-1');
-                    }}
-                }});
-            }}
-
-            function syncAndFilter(mode, value, btn) {{
-                if (mode === 'tipo') {{
-                    filterT = value;
-                    const activeT = (value === 'none') ? 'btn-secondary' : 'btn-primary';
-                    const outlineT = (value === 'none') ? 'btn-outline-secondary' : 'btn-outline-primary';
-                    const outlineFs = (value === 'none') ? 'btn-outline-secondary' : 'btn-outline-light';
-                    
-                    highlightButtons('group-tipo-main', value, activeT, outlineT);
-                    highlightButtons('group-tipo-fs', value, activeT, outlineFs);
-                }} else {{
-                    filterC = value;
-                    highlightButtons('group-color-main', value, 'btn-success', 'btn-outline-success');
-                    highlightButtons('group-color-fs', value, 'btn-success', 'btn-outline-light');
-                }}
-                drawPoints();
-            }}
-
-            function updateFilters(mode, value, btn) {{ syncAndFilter(mode, value, btn); }}
-
-            function getContrastColor(hex) {{
-                if (hex.indexOf('#') === 0) hex = hex.slice(1);
-                const cssColors = {{ 'purple': '800080', 'black': '000000', 'royalblue': '4169E1', 'crimson': 'DC143C', 'gray': '808080' }};
-                if (cssColors[hex]) hex = cssColors[hex];
-                if (hex.length === 3) hex = hex[0]+hex[0]+hex[1]+hex[1]+hex[2]+hex[2];
-                if (hex.length !== 6) return '#2c3e50';
-                const r = parseInt(hex.slice(0, 2), 16);
-                const g = parseInt(hex.slice(2, 4), 16);
-                const b = parseInt(hex.slice(4, 6), 16);
-                const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
-                return (yiq >= 128) ? '#2c3e50' : '#ffffff';
-            }}
-
-            viewer.addHandler('open', drawPoints);
-
-            function drawPoints() {{
-                viewer.clearOverlays();
-                const bar = document.getElementById('info-bar');
-                if (filterT === 'none') {{
-                    bar.innerHTML = "MODO DE INSPECCIÓN: PUNTOS OCULTOS";
-                    bar.style.backgroundColor = "#f8f9fa"; bar.style.color = "#2c3e50";
-                    renderSummary([]); return;
-                }}
-                bar.innerHTML = "Selecciona un punto para ver su detalle";
-                bar.style.backgroundColor = "#f8f9fa"; bar.style.color = "#2c3e50";
-
-                const filtered = puntos.filter(p => (filterT === 'all' || p.tipo === filterT) && (filterC === 'all' || p.color_norm === filterC));
-                
-                // 1. Dibujar todos los puntos normalmente
-                filtered.forEach(p => {{
-                    const elt = document.createElement("div");
-                    elt.className = "dot"; elt.style.backgroundColor = p.color_plot;
-                    elt.addEventListener('pointerdown', (e) => {{
-                        e.stopPropagation();
-                        if(lastSelected) lastSelected.classList.remove('selected');
-                        elt.classList.add('selected'); lastSelected = elt;
-                        bar.style.backgroundColor = p.color_plot;
-                        bar.style.color = getContrastColor(p.color_plot);
-                        bar.innerHTML = "SELECCIONADO: " + p.tipo.toUpperCase() + " | " + p.color_norm.replace(/_/g, ' ').toUpperCase() + " (" + p.tamaño + ")";
-                    }});
-                    viewer.addOverlay({{ element: elt, location: new OpenSeadragon.Point(p.x/imgW, p.y/imgW), placement: 'CENTER' }});
-                }});
-
-                // 2. Lógica del MODO DIAGRAMA (Agrupamiento Espacial)
-                if (diagramMode) {{
-                    const groupsByType = {{}};
-                    
-                    // Separar puntos por tipo+color+tamaño
-                    filtered.forEach(p => {{
-                        const key = p.tipo.toUpperCase() + " " + p.color_norm.replace(/_/g, ' ').toUpperCase() + " " + p.tamaño;
-                        if (!groupsByType[key]) groupsByType[key] = [];
-                        groupsByType[key].push(p);
-                    }});
-
-                    // Distancia máxima para considerar que dos puntos están en el mismo grupo (10% del ancho de la imagen)
-                    const DISTANCE_THRESHOLD = 0.10; 
-
-                    for (let k in groupsByType) {{
-                        let points = groupsByType[k];
-                        let clusters = []; // Subgrupos espaciales
-
-                        // Agrupar puntos cercanos
-                        points.forEach(p => {{
-                            let pX = p.x / imgW;
-                            let pY = p.y / imgW;
-                            let addedToCluster = false;
-                            
-                            for (let i = 0; i < clusters.length; i++) {{
-                                let cluster = clusters[i];
-                                // Revisar si este punto está cerca de algún punto que ya está en el cluster
-                                for (let cp of cluster.points) {{
-                                    let cpX = cp.x / imgW;
-                                    let cpY = cp.y / imgW;
-                                    let dist = Math.sqrt(Math.pow(pX - cpX, 2) + Math.pow(pY - cpY, 2));
-                                    
-                                    if (dist < DISTANCE_THRESHOLD) {{
-                                        cluster.points.push(p);
-                                        addedToCluster = true;
-                                        break;
-                                    }}
-                                }}
-                                if (addedToCluster) break;
-                            }}
-                            
-                            // Si no estaba cerca de ningún cluster existente, crear uno nuevo
-                            if (!addedToCluster) {{
-                                clusters.push({{ points: [p], color: p.color_plot }});
-                            }}
-                        }});
-
-                        // Dibujar las etiquetas para cada cluster individual
-                        clusters.forEach(cluster => {{
-                            let count = cluster.points.length;
-                            // Anclar la etiqueta al punto más a la derecha del cluster
-                            let anchor = cluster.points.reduce((prev, curr) => (curr.x > prev.x) ? curr : prev);
-                            
-                            const lbl = document.createElement("div");
-                            lbl.className = "diagram-label";
-                            lbl.style.borderLeftColor = cluster.color;
-                            lbl.innerHTML = `<span style="color:${{cluster.color}}; font-size:16px;">●</span> <b>${{count}}</b> ${{k}}`;
-
-                            viewer.addOverlay({{
-                                element: lbl,
-                                location: new OpenSeadragon.Point(anchor.x/imgW, anchor.y/imgW),
-                                placement: 'RIGHT',
-                                checkResize: false
-                            }});
-                        }});
-                    }}
-                }}
-
-                renderSummary(filtered);
-            }}
-
-            function renderSummary(data) {{
-                const container = document.getElementById('tables-output');
-                const groups = {{}}; let totalGral = 0;
-                const summaryData = (filterT === 'none') ? puntos : data;
-                summaryData.forEach(p => {{
-                    totalGral++;
-                    if(!groups[p.tipo]) groups[p.tipo] = {{}};
-                    const key = p.color_norm.replace(/_/g, ' ').toUpperCase() + " (" + p.tamaño + ")";
-                    groups[p.tipo][key] = (groups[p.tipo][key] || 0) + 1;
-                }});
-                let html = '<h4 class="fw-bold mb-4">RESUMEN DE COMPONENTES</h4>';
-                for(let t in groups) {{
-                    let subtotal = Object.values(groups[t]).reduce((a, b) => a + b, 0);
-                    html += '<div class="category-row"><span>' + t.toUpperCase() + '</span><span class="badge bg-primary">' + subtotal + ' pz</span></div><table class="item-table"><tbody>';
-                    for(let k in groups[t]) html += '<tr><td>' + k + '</td><td class="text-end fw-bold">' + groups[t][k] + ' pz</td></tr>';
-                    html += '</tbody></table>';
-                }}
-                html += '<div class="total-banner">CANTIDAD TOTAL: ' + totalGral + ' PIEZAS</div>';
-                container.innerHTML = html;
-            }}
-
-            function toggleFS() {{
-                const el = document.getElementById("workspace");
-                if (!document.fullscreenElement) el.requestFullscreen(); else document.exitFullscreen();
-            }}
-
-            document.getElementById('btn-in').onclick = () => viewer.viewport.zoomBy(1.4);
-            document.getElementById('btn-out').onclick = () => viewer.viewport.zoomBy(0.7);
-            document.getElementById('btn-home').onclick = () => viewer.viewport.goHome();
-            
-            // Evento para el botón de Diagrama
-            document.getElementById('btn-diagrama').onclick = () => {{
-                diagramMode = !diagramMode;
-                document.getElementById('btn-diagrama').style.background = diagramMode ? '#e74c3c' : '#f39c12';
-                drawPoints();
-            }};
-        </script>
-    </body>
-    </html>
-    """
-    st.divider()
-    st.download_button(label="📥 DESCARGAR REPORTE FINAL CORREGIDO", data=html_report, file_name=f"{titulo_final}.html", mime="text/html")
+                <div class="d-grid
 
 
