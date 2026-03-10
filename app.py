@@ -8,7 +8,6 @@ from io import BytesIO
 # =========================================================
 # CONFIGURACIÓN Y CATÁLOGO
 # =========================================================
-# Se agregó initial_sidebar_state="expanded" para mantener el panel abierto
 st.set_page_config(page_title="Gestor de Mosaicos Pro", layout="wide", initial_sidebar_state="expanded")
 
 COLOR_CATALOG = {
@@ -57,7 +56,6 @@ img_file = st.sidebar.file_uploader("2. Subir Imagen", type=["jpg", "png", "jpeg
 
 st.sidebar.divider()
 st.sidebar.subheader("Ajustes del Reporte")
-# Nuevo slider para controlar el agrupamiento
 sensibilidad_cluster = st.sidebar.slider(
     "Sensibilidad de Agrupamiento (%)", 
     min_value=1, 
@@ -79,7 +77,7 @@ if xml_file and img_file:
             for c in coords:
                 x, y = map(float, c.split(","))
                 
-                # Asignación de tamaño por defecto según el tipo
+                # Asignación de tamaño por defecto
                 tamaño_defecto = ""
                 if tipo == "microperla": tamaño_defecto = "pp01"
                 elif tipo == "marquiz": tamaño_defecto = "6x3mm"
@@ -107,6 +105,12 @@ if xml_file and img_file:
     tipos_unicos = sorted(df["tipo"].unique().tolist())
     colores_unicos = sorted(df["color_norm"].unique().tolist())
     titulo_final = f"Componentes {nombre_modelo}" if nombre_modelo else "Componentes"
+
+    # CONSTRUCCIÓN DE BOTONES FUERA DEL F-STRING PARA EVITAR ERRORES DE SINTAXIS
+    btn_tipo_main = ' '.join([f"""<button class="btn btn-outline-primary btn-sm rounded-pill px-3 mx-1" data-val="{t}" onclick="updateFilters('tipo', '{t}', this)">{t.upper()}</button>""" for t in tipos_unicos])
+    btn_color_main = ' '.join([f"""<button class="btn btn-outline-success btn-sm rounded-pill px-3 mx-1" data-val="{c}" onclick="updateFilters('color', '{c}', this)">{c.replace('_', ' ').upper()}</button>""" for c in colores_unicos])
+    btn_tipo_fs = ' '.join([f"""<button class="btn btn-outline-light btn-sm btn-filter-fs" data-val="{t}" onclick="syncAndFilter('tipo', '{t}', this)">{t.upper()}</button>""" for t in tipos_unicos])
+    btn_color_fs = ' '.join([f"""<button class="btn btn-outline-light btn-sm btn-filter-fs" style="text-align: left;" data-val="{c}" onclick="syncAndFilter('color', '{c}', this)"><span style="display:inline-block;width:10px;height:10px;background:{COLOR_CATALOG.get(c, "gray")};margin-right:8px;border-radius:50%"></span>{c.replace('_', ' ').upper()}</button>""" for c in colores_unicos])
 
     html_report = f"""
     <!DOCTYPE html>
@@ -197,13 +201,13 @@ if xml_file and img_file:
             <div class="mb-2" id="group-tipo-main">
                 <small class="fw-bold text-muted">TIPO DE PIEZA:</small>
                 <button class="btn btn-primary btn-sm rounded-pill px-3" data-val="all" onclick="updateFilters('tipo', 'all', this)">TODOS</button>
-                {' '.join([f'<button class="btn btn-outline-primary btn-sm rounded-pill px-3 mx-1" data-val="{t}" onclick="updateFilters(\'tipo\', \'{t}\', this)">{t.upper()}</button>' for t in tipos_unicos])}
+                {btn_tipo_main}
                 <button class="btn btn-outline-secondary btn-sm rounded-pill px-3 mx-1" data-val="none" onclick="updateFilters('tipo', 'none', this)">❌ NINGUNO</button>
             </div>
             <div id="group-color-main">
                 <small class="fw-bold text-muted">COLOR:</small>
                 <button class="btn btn-success btn-sm rounded-pill px-3" data-val="all" onclick="updateFilters('color', 'all', this)">TODOS</button>
-                {' '.join([f'<button class="btn btn-outline-success btn-sm rounded-pill px-3 mx-1" data-val="{c}" onclick="updateFilters(\'color\', \'{c}\', this)">{c.replace("_", " ").upper()}</button>' for c in colores_unicos])}
+                {btn_color_main}
             </div>
         </div>
 
@@ -216,11 +220,241 @@ if xml_file and img_file:
                 <div class="sidebar-section-title">TIPO DE COMPONENTE</div>
                 <div class="d-grid gap-2 mb-4" id="group-tipo-fs">
                     <button class="btn btn-primary btn-sm btn-filter-fs" data-val="all" onclick="syncAndFilter('tipo', 'all', this)">TODOS</button>
-                    {' '.join([f'<button class="btn btn-outline-light btn-sm btn-filter-fs" data-val="{t}" onclick="syncAndFilter(\'tipo\', \'{t}\', this)">{t.upper()}</button>' for t in tipos_unicos])}
+                    {btn_tipo_fs}
                     <button class="btn btn-outline-secondary btn-sm btn-filter-fs" data-val="none" onclick="syncAndFilter('tipo', 'none', this)">OCULTAR TODO</button>
                 </div>
 
                 <div class="sidebar-section-title">FILTRAR POR COLOR</div>
-                <div class="d-grid
+                <div class="d-grid gap-2" id="group-color-fs">
+                    <button class="btn btn-success btn-sm btn-filter-fs" data-val="all" onclick="syncAndFilter('color', 'all', this)">TODOS LOS COLORES</button>
+                    {btn_color_fs}
+                </div>
+            </div>
 
+            <div id="info-bar">Selecciona un punto para ver su detalle</div>
+            
+            <div class="custom-nav">
+                <div id="btn-in" class="nav-btn btn-zoom-in">+</div>
+                <div id="btn-out" class="nav-btn btn-zoom-out">−</div>
+                <div id="btn-home" class="nav-btn btn-home">🏠</div>
+                <div id="btn-diagrama" class="nav-btn btn-diagrama" title="Activar Modo Diagrama">📊</div>
+            </div>
+            
+            <button id="toggle-sidebar-btn" onclick="toggleFsSidebar()">☰ Filtros</button>
+            <button class="btn-fs" onclick="toggleFS()">📺 Pantalla Completa</button>
+            <div id="viewer-container"></div>
+        </div>
 
+        <div class="container-fluid report-container">
+            <div class="summary-card" id="tables-output"></div>
+        </div>
+
+        <script>
+            const puntos = {puntos_json};
+            const imgW = {width};
+            const DISTANCE_THRESHOLD = {sensibilidad_cluster / 100.0};
+            
+            const viewer = OpenSeadragon({{
+                id: "viewer-container",
+                prefixUrl: "https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/images/",
+                tileSources: {{ type: 'image', url: '{data_uri}' }},
+                showNavigationControl: false,
+                maxZoomLevel: 80,
+                minZoomImageRatio: 1.0,
+                visibilityRatio: 1.0,
+                constrainDuringPan: true,
+                gestureSettingsTouch: {{ clickToZoom: false, dblClickToZoom: false }},
+                gestureSettingsMouse: {{ clickToZoom: false, dblClickToZoom: false }}
+            }});
+
+            let filterT = 'all', filterC = 'all', lastSelected = null;
+            let diagramMode = false;
+
+            document.addEventListener('fullscreenchange', () => {{
+                if (!document.fullscreenElement) {{
+                    document.getElementById('fs-sidebar').classList.remove('active');
+                }}
+                setTimeout(() => {{ viewer.viewport.goHome(); }}, 100);
+            }});
+
+            function toggleFsSidebar() {{
+                document.getElementById('fs-sidebar').classList.toggle('active');
+            }}
+
+            function highlightButtons(groupId, value, activeClass, outlineClass) {{
+                const container = document.getElementById(groupId);
+                container.querySelectorAll('.btn').forEach(btn => {{
+                    const btnVal = btn.getAttribute('data-val');
+                    if (btnVal === value) {{
+                        btn.className = 'btn btn-sm ' + activeClass + (groupId.includes('fs') ? ' btn-filter-fs' : ' rounded-pill px-3 mx-1');
+                    }} else {{
+                        btn.className = 'btn btn-sm ' + outlineClass + (groupId.includes('fs') ? ' btn-filter-fs' : ' rounded-pill px-3 mx-1');
+                    }}
+                }});
+            }}
+
+            function syncAndFilter(mode, value, btn) {{
+                if (mode === 'tipo') {{
+                    filterT = value;
+                    const activeT = (value === 'none') ? 'btn-secondary' : 'btn-primary';
+                    const outlineT = (value === 'none') ? 'btn-outline-secondary' : 'btn-outline-primary';
+                    const outlineFs = (value === 'none') ? 'btn-outline-secondary' : 'btn-outline-light';
+                    
+                    highlightButtons('group-tipo-main', value, activeT, outlineT);
+                    highlightButtons('group-tipo-fs', value, activeT, outlineFs);
+                }} else {{
+                    filterC = value;
+                    highlightButtons('group-color-main', value, 'btn-success', 'btn-outline-success');
+                    highlightButtons('group-color-fs', value, 'btn-success', 'btn-outline-light');
+                }}
+                drawPoints();
+            }}
+
+            function updateFilters(mode, value, btn) {{ syncAndFilter(mode, value, btn); }}
+
+            function getContrastColor(hex) {{
+                if (hex.indexOf('#') === 0) hex = hex.slice(1);
+                const cssColors = {{ 'purple': '800080', 'black': '000000', 'royalblue': '4169E1', 'crimson': 'DC143C', 'gray': '808080' }};
+                if (cssColors[hex]) hex = cssColors[hex];
+                if (hex.length === 3) hex = hex[0]+hex[0]+hex[1]+hex[1]+hex[2]+hex[2];
+                if (hex.length !== 6) return '#2c3e50';
+                const r = parseInt(hex.slice(0, 2), 16);
+                const g = parseInt(hex.slice(2, 4), 16);
+                const b = parseInt(hex.slice(4, 6), 16);
+                const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
+                return (yiq >= 128) ? '#2c3e50' : '#ffffff';
+            }}
+
+            viewer.addHandler('open', drawPoints);
+
+            function drawPoints() {{
+                viewer.clearOverlays();
+                const bar = document.getElementById('info-bar');
+                if (filterT === 'none') {{
+                    bar.innerHTML = "MODO DE INSPECCIÓN: PUNTOS OCULTOS";
+                    bar.style.backgroundColor = "#f8f9fa"; bar.style.color = "#2c3e50";
+                    renderSummary([]); return;
+                }}
+                bar.innerHTML = "Selecciona un punto para ver su detalle";
+                bar.style.backgroundColor = "#f8f9fa"; bar.style.color = "#2c3e50";
+
+                const filtered = puntos.filter(p => (filterT === 'all' || p.tipo === filterT) && (filterC === 'all' || p.color_norm === filterC));
+                
+                // 1. Dibujar todos los puntos normalmente
+                filtered.forEach(p => {{
+                    const elt = document.createElement("div");
+                    elt.className = "dot"; elt.style.backgroundColor = p.color_plot;
+                    elt.addEventListener('pointerdown', (e) => {{
+                        e.stopPropagation();
+                        if(lastSelected) lastSelected.classList.remove('selected');
+                        elt.classList.add('selected'); lastSelected = elt;
+                        bar.style.backgroundColor = p.color_plot;
+                        bar.style.color = getContrastColor(p.color_plot);
+                        bar.innerHTML = "SELECCIONADO: " + p.tipo.toUpperCase() + " | " + p.color_norm.replace(/_/g, ' ').toUpperCase() + " (" + p.tamaño + ")";
+                    }});
+                    viewer.addOverlay({{ element: elt, location: new OpenSeadragon.Point(p.x/imgW, p.y/imgW), placement: 'CENTER' }});
+                }});
+
+                // 2. Lógica del MODO DIAGRAMA
+                if (diagramMode) {{
+                    const groupsByType = {{}};
+                    
+                    filtered.forEach(p => {{
+                        const key = p.tipo.toUpperCase() + " " + p.color_norm.replace(/_/g, ' ').toUpperCase() + " " + p.tamaño;
+                        if (!groupsByType[key]) groupsByType[key] = [];
+                        groupsByType[key].push(p);
+                    }});
+
+                    for (let k in groupsByType) {{
+                        let points = groupsByType[k];
+                        let clusters = [];
+
+                        points.forEach(p => {{
+                            let pX = p.x / imgW;
+                            let pY = p.y / imgW;
+                            let addedToCluster = false;
+                            
+                            for (let i = 0; i < clusters.length; i++) {{
+                                let cluster = clusters[i];
+                                for (let cp of cluster.points) {{
+                                    let cpX = cp.x / imgW;
+                                    let cpY = cp.y / imgW;
+                                    let dist = Math.sqrt(Math.pow(pX - cpX, 2) + Math.pow(pY - cpY, 2));
+                                    
+                                    if (dist < DISTANCE_THRESHOLD) {{
+                                        cluster.points.push(p);
+                                        addedToCluster = true;
+                                        break;
+                                    }}
+                                }}
+                                if (addedToCluster) break;
+                            }}
+                            
+                            if (!addedToCluster) {{
+                                clusters.push({{ points: [p], color: p.color_plot }});
+                            }}
+                        }});
+
+                        clusters.forEach(cluster => {{
+                            let count = cluster.points.length;
+                            let anchor = cluster.points.reduce((prev, curr) => (curr.x > prev.x) ? curr : prev);
+                            
+                            const lbl = document.createElement("div");
+                            lbl.className = "diagram-label";
+                            lbl.style.borderLeftColor = cluster.color;
+                            lbl.innerHTML = `<span style="color:${{cluster.color}}; font-size:16px;">●</span> <b>${{count}}</b> ${{k}}`;
+
+                            viewer.addOverlay({{
+                                element: lbl,
+                                location: new OpenSeadragon.Point(anchor.x/imgW, anchor.y/imgW),
+                                placement: 'RIGHT',
+                                checkResize: false
+                            }});
+                        }});
+                    }}
+                }}
+
+                renderSummary(filtered);
+            }}
+
+            function renderSummary(data) {{
+                const container = document.getElementById('tables-output');
+                const groups = {{}}; let totalGral = 0;
+                const summaryData = (filterT === 'none') ? puntos : data;
+                summaryData.forEach(p => {{
+                    totalGral++;
+                    if(!groups[p.tipo]) groups[p.tipo] = {{}};
+                    const key = p.color_norm.replace(/_/g, ' ').toUpperCase() + " (" + p.tamaño + ")";
+                    groups[p.tipo][key] = (groups[p.tipo][key] || 0) + 1;
+                }});
+                let html = '<h4 class="fw-bold mb-4">RESUMEN DE COMPONENTES</h4>';
+                for(let t in groups) {{
+                    let subtotal = Object.values(groups[t]).reduce((a, b) => a + b, 0);
+                    html += '<div class="category-row"><span>' + t.toUpperCase() + '</span><span class="badge bg-primary">' + subtotal + ' pz</span></div><table class="item-table"><tbody>';
+                    for(let k in groups[t]) html += '<tr><td>' + k + '</td><td class="text-end fw-bold">' + groups[t][k] + ' pz</td></tr>';
+                    html += '</tbody></table>';
+                }}
+                html += '<div class="total-banner">CANTIDAD TOTAL: ' + totalGral + ' PIEZAS</div>';
+                container.innerHTML = html;
+            }}
+
+            function toggleFS() {{
+                const el = document.getElementById("workspace");
+                if (!document.fullscreenElement) el.requestFullscreen(); else document.exitFullscreen();
+            }}
+
+            document.getElementById('btn-in').onclick = () => viewer.viewport.zoomBy(1.4);
+            document.getElementById('btn-out').onclick = () => viewer.viewport.zoomBy(0.7);
+            document.getElementById('btn-home').onclick = () => viewer.viewport.goHome();
+            
+            document.getElementById('btn-diagrama').onclick = () => {{
+                diagramMode = !diagramMode;
+                document.getElementById('btn-diagrama').style.background = diagramMode ? '#e74c3c' : '#f39c12';
+                drawPoints();
+            }};
+        </script>
+    </body>
+    </html>
+    """
+    st.divider()
+    st.download_button(label="📥 DESCARGAR REPORTE FINAL CORREGIDO", data=html_report, file_name=f"{titulo_final}.html", mime="text/html")
