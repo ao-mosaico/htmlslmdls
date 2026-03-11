@@ -205,9 +205,13 @@ if xml_file and img_file:
                 <div style="clear:both;"></div>
                 <h5 class="mb-4">🔍 Filtros de Inspección</h5>
                 
-                <div class="sidebar-section-title" style="margin-top: 20px;">SENSIBILIDAD DE AGRUPAMIENTO</div>
+                <div class="sidebar-section-title" style="margin-top: 20px;">AJUSTE DE ETIQUETAS</div>
+                <p style="font-size: 11px; color: #bdc3c7; line-height: 1.3; margin-bottom: 8px;">¿Las etiquetas se enciman? Mueve la barra para ajustarlas:</p>
                 <input type="range" id="sensitivity-slider" min="1" max="50" value="10" style="width: 100%; cursor: pointer;">
-                <div style="text-align: center; color: #1abc9c; font-weight: bold; margin-bottom: 25px;"><span id="sensitivity-val">10</span>%</div>
+                <div style="display: flex; justify-content: space-between; font-size: 10px; color: #ecf0f1; margin-bottom: 25px; font-weight: bold;">
+                    <span>← SEPARAR MÁS</span>
+                    <span>AGRUPAR MÁS →</span>
+                </div>
 
                 <div class="sidebar-section-title">TIPO DE COMPONENTE</div>
                 <div class="d-grid gap-2 mb-4" id="group-tipo-fs">
@@ -264,7 +268,6 @@ if xml_file and img_file:
             let diagramMode = false;
 
             document.getElementById('sensitivity-slider').addEventListener('input', function(e) {{
-                document.getElementById('sensitivity-val').innerText = e.target.value;
                 DISTANCE_THRESHOLD = e.target.value / 100.0;
                 if (diagramMode) drawPoints(); 
             }});
