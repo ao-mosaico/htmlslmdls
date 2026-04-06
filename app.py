@@ -79,6 +79,17 @@ if xml_file and img_file:
                     "color_plot": COLOR_CATALOG.get(normalizar_color(attrs.get("color", "")), "gray")
                 })
     
+    # --- INICIO DE BLOQUE PARA ELIMINAR DUPLICADOS ---
+    filas_limpias = []
+    coordenadas_vistas = set()
+    for row in rows:
+        coord_id = (round(row["x"], 2), round(row["y"], 2))
+        if coord_id not in coordenadas_vistas:
+            filas_limpias.append(row)
+            coordenadas_vistas.add(coord_id)
+    rows = filas_limpias
+    # --- FIN DE BLOQUE PARA ELIMINAR DUPLICADOS ---
+
     df = pd.DataFrame(rows)
     df["color_norm"] = df.apply(ajustar_color_por_tipo, axis=1)
     df["color_plot"] = df["color_norm"].map(lambda x: COLOR_CATALOG.get(x, "gray"))
