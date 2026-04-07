@@ -4,6 +4,8 @@ import pandas as pd
 from PIL import Image
 import base64
 from io import BytesIO
+import re      # Importación añadida para leer HTMLs
+import json    # Importación añadida para procesar HTMLs
 
 # =========================================================
 # CONFIGURACIÓN Y CATÁLOGO
@@ -47,7 +49,7 @@ def ajustar_color_por_tipo(row):
     return color
 
 # =========================================================
-# PROCESAMIENTO
+# PROCESAMIENTO PRINCIPAL
 # =========================================================
 st.sidebar.title("💎 Panel de Control")
 nombre_modelo = st.sidebar.text_input("Nombre del Modelo", placeholder="Ej: PB-8612 A")
@@ -79,7 +81,7 @@ if xml_file and img_file:
                     "color_plot": COLOR_CATALOG.get(normalizar_color(attrs.get("color", "")), "gray")
                 })
     
-    # --- INICIO DE BLOQUE PARA ELIMINAR DUPLICADOS ---
+    # --- INICIO DE BLOQUE PARA ELIMINAR DUPLICADOS EN ARCHIVOS NUEVOS ---
     filas_limpias = []
     coordenadas_vistas = set()
     for row in rows:
@@ -470,6 +472,7 @@ if xml_file and img_file:
     st.divider()
     st.download_button(label="📥 DESCARGAR REPORTE FINAL CORREGIDO", data=html_report, file_name=f"{titulo_final}.html", mime="text/html")
 
+
 # =========================================================
 # HERRAMIENTA DE CORRECCIÓN DE HTML EXISTENTES (MÚLTIPLES)
 # =========================================================
@@ -477,7 +480,6 @@ st.sidebar.divider()
 st.sidebar.title("🛠️ Reparar HTMLs")
 st.sidebar.info("Sube uno o varios archivos HTML generados previamente para eliminar puntos duplicados.")
 
-# El parámetro accept_multiple_files=True permite seleccionar y arrastrar varios archivos
 html_files = st.sidebar.file_uploader("Subir HTML(s) a corregir", type=["html"], accept_multiple_files=True)
 
 if html_files:
@@ -511,7 +513,7 @@ if html_files:
                 
                 st.sidebar.success(f"✅ {html_file.name}: Pasó de {len(puntos_lista)} a {len(filas_limpias)} piezas.")
                 
-                # Botón de descarga para CADA archivo corregido (se usa key para que Streamlit no confunda los botones)
+                # Botón de descarga para CADA archivo corregido
                 st.sidebar.download_button(
                     label=f"📥 DESCARGAR {html_file.name}",
                     data=nuevo_content,
