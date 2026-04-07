@@ -82,7 +82,7 @@ if xml_file and img_file:
                     "color_plot": COLOR_CATALOG.get(normalizar_color(attrs.get("color", "")), "gray")
                 })
     
-    # --- BLOQUE PARA ELIMINAR DUPLICADOS EN ARCHIVOS NUEVOS ---
+    # --- BLOQUE PARA ELIMINAR DUPLICADOS ---
     filas_limpias = []
     coordenadas_vistas = set()
     for row in rows:
@@ -114,7 +114,7 @@ if xml_file and img_file:
     btn_tipo_fs = ' '.join([f'<button class="btn btn-outline-light btn-sm btn-filter-fs" data-val="{t}" onclick="syncAndFilter(\'tipo\', \'{t}\', this)">{t.upper()}</button>' for t in tipos_unicos])
     btn_color_fs = ' '.join([f'<button class="btn btn-outline-light btn-sm btn-filter-fs" style="text-align: left;" data-val="{c}" onclick="syncAndFilter(\'color\', \'{c}\', this)"><span style="display:inline-block;width:10px;height:10px;background:{COLOR_CATALOG.get(c, "gray")};margin-right:8px;border-radius:50%"></span>{c.replace("_", " ").upper()}</button>' for c in colores_unicos])
 
-    # PLANTILLA HTML LIBRE DE F-STRINGS (Evita cualquier SyntaxError futuro)
+    # PLANTILLA HTML LIBRE DE F-STRINGS Y VARIABLES REEMPLAZABLES
     html_template = """
     <!DOCTYPE html>
     <html>
@@ -138,7 +138,15 @@ if xml_file and img_file:
             #workspace:fullscreen { height: 100vh !important; width: 100vw !important; }
             #viewer-container { width: 100%; height: 100%; }
             
+            /* ESTILOS DE LOS BOTONES DE NAVEGACIÓN Y DIAGRAMA */
             .custom-nav { position: absolute; top: 125px; left: 15px; z-index: 1005; display: flex; flex-direction: column; gap: 8px; }
+            .nav-btn { width: 44px; height: 44px; border-radius: 8px; border: 2px solid white; color: white; font-size: 22px; font-weight: bold; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s;}
+            .nav-btn:hover { transform: scale(1.1); }
+            .btn-zoom-in { background: #1abc9c !important; }
+            .btn-zoom-out { background: #ffb7c5 !important; color: #333 !important; }
+            .btn-home { background: #3498db !important; }
+            .btn-diagrama { background: #f39c12 !important; font-size: 20px; } /* BOTÓN MODO DIAGRAMA */
+
             .btn-fs { position: absolute; top: 125px; right: 15px; z-index: 1005; background: #fff; border: 2px solid #2c3e50; padding: 8px 16px; border-radius: 20px; font-weight: bold; cursor: pointer; }
 
             /* SIDEBAR DERECHO */
@@ -159,15 +167,9 @@ if xml_file and img_file:
             #fs-sidebar.active ~ #toggle-sidebar-btn { right: 315px; } 
             #workspace:fullscreen #toggle-sidebar-btn { display: block; }
 
-            /* ESTILO BOTONES Y PUNTOS */
             .btn-primary, .btn-success, .btn-secondary { color: white !important; }
             .sidebar-section-title { font-size: 12px; font-weight: bold; color: #1abc9c; letter-spacing: 1px; margin-bottom: 15px; border-bottom: 1px solid #3e5871; padding-bottom: 5px; }
-            .nav-btn { width: 44px; height: 44px; border-radius: 8px; border: 2px solid white; color: white; font-size: 22px; font-weight: bold; display: flex; align-items: center; justify-content: center; cursor: pointer; }
-            .btn-zoom-in { background: #1abc9c !important; }
-            .btn-zoom-out { background: #ffb7c5 !important; color: #333 !important; }
-            .btn-home { background: #3498db !important; }
-            .btn-diagrama { background: #f39c12 !important; font-size: 20px; }
-
+            
             .dot { width: 14px; height: 14px; border-radius: 50%; border: none; opacity: 0.7; cursor: pointer; transition: transform 0.2s, opacity 0.2s; }
             .dot.selected { opacity: 1 !important; border: 3px solid #fff !important; box-shadow: 0 0 15px #fff; transform: scale(1.6); z-index: 999 !important; }
 
@@ -220,7 +222,7 @@ if xml_file and img_file:
                 <div style="clear:both;"></div>
                 <h5 class="mb-4">🔍 Filtros de Inspección</h5>
                 
-                <div class="sidebar-section-title" style="margin-top: 20px;">NIVEL DE AGRUPAMIENTO</div>
+                <div class="sidebar-section-title" style="margin-top: 20px;">NIVEL DE AGRUPAMIENTO DIAGRAMA</div>
                 <p style="font-size: 11px; color: #bdc3c7; line-height: 1.3; margin-bottom: 8px;">Ajusta la barra para dividir los componentes en grupos más pequeños o juntar las cantidades:</p>
                 <input type="range" id="sensitivity-slider" min="1" max="50" value="10" style="width: 100%; cursor: pointer;">
                 <div style="display: flex; justify-content: space-between; font-size: 10px; color: #ecf0f1; margin-bottom: 25px; font-weight: bold;">
@@ -245,9 +247,9 @@ if xml_file and img_file:
             <div id="info-bar">Selecciona un punto para ver su detalle</div>
             
             <div class="custom-nav">
-                <div id="btn-in" class="nav-btn btn-zoom-in">+</div>
-                <div id="btn-out" class="nav-btn btn-zoom-out">−</div>
-                <div id="btn-home" class="nav-btn btn-home">🏠</div>
+                <div id="btn-in" class="nav-btn btn-zoom-in" title="Acercar">+</div>
+                <div id="btn-out" class="nav-btn btn-zoom-out" title="Alejar">−</div>
+                <div id="btn-home" class="nav-btn btn-home" title="Centrar">🏠</div>
                 <div id="btn-diagrama" class="nav-btn btn-diagrama" title="Activar Modo Diagrama">📊</div>
             </div>
             
@@ -462,6 +464,7 @@ if xml_file and img_file:
             document.getElementById('btn-out').onclick = () => viewer.viewport.zoomBy(0.7);
             document.getElementById('btn-home').onclick = () => viewer.viewport.goHome();
             
+            // ACCIÓN DEL BOTÓN MODO DIAGRAMA
             document.getElementById('btn-diagrama').onclick = () => {
                 diagramMode = !diagramMode;
                 document.getElementById('btn-diagrama').style.background = diagramMode ? '#e74c3c' : '#f39c12';
@@ -472,8 +475,8 @@ if xml_file and img_file:
     </html>
     """
     
-    # Inyección de variables con replace (Método 100% seguro contra errores de sintaxis)
-    html_report = html_report.replace("__TITULO_FINAL__", str(titulo_final))
+    # Inyección de variables con replace (Inicializando correctamente html_report)
+    html_report = html_template.replace("__TITULO_FINAL__", str(titulo_final))
     html_report = html_report.replace("__BTN_TIPO_MAIN__", btn_tipo_main)
     html_report = html_report.replace("__BTN_COLOR_MAIN__", btn_color_main)
     html_report = html_report.replace("__BTN_TIPO_FS__", btn_tipo_fs)
@@ -483,15 +486,15 @@ if xml_file and img_file:
     html_report = html_report.replace("__DATA_URI__", data_uri)
 
     st.divider()
-    st.download_button(label="📥 DESCARGAR REPORTE FINAL CORREGIDO", data=html_report, file_name=f"{titulo_final}.html", mime="text/html")
+    st.download_button(label="📥 DESCARGAR REPORTE", data=html_report, file_name=f"{titulo_final}.html", mime="text/html")
 
 
 # =========================================================
 # HERRAMIENTA DE CORRECCIÓN DE HTML EXISTENTES (MÚLTIPLES)
 # =========================================================
 st.sidebar.divider()
-st.sidebar.title("🛠️ Reparar HTMLs")
-st.sidebar.info("Sube uno o varios archivos HTML generados previamente para eliminar puntos duplicados.")
+st.sidebar.title("🛠️ Reparar HTMLs Viejos")
+st.sidebar.info("Sube uno o varios archivos HTML generados en el pasado para eliminar puntos duplicados. (NOTA: Esto NO les añade el modo diagrama, solo limpia duplicados).")
 
 html_files = st.sidebar.file_uploader("Subir HTML(s) a corregir", type=["html"], accept_multiple_files=True)
 
