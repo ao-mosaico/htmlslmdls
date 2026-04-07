@@ -469,3 +469,54 @@ if xml_file and img_file:
     """
     st.divider()
     st.download_button(label="📥 DESCARGAR REPORTE FINAL CORREGIDO", data=html_report, file_name=f"{titulo_final}.html", mime="text/html")
+
+    # =========================================================
+# HERRAMIENTA DE CORRECCIÓN DE HTML EXISTENTES
+# =========================================================
+st.sidebar.divider()
+st.sidebar.title("🛠️ Reparar HTML")
+st.sidebar.info("Sube un archivo HTML generado previamente para eliminar puntos duplicados sin necesidad del XML o la imagen.")
+
+html_file = st.sidebar.file_uploader("Subir HTML a corregir", type=["html"])
+
+if html_file:
+    # Leer el contenido del HTML
+    content = html_file.read().decode("utf-8")
+    
+    # Usar expresiones regulares para encontrar dónde están guardados los puntos
+    match = re.search(r'const puntos = (\[.*?\]);', content, re.DOTALL)
+    
+    if match:
+        puntos_raw = match.group(1)
+        try:
+            # Convertir el texto a una lista de Python
+            puntos_lista = json.loads(puntos_raw)
+            
+            # Aplicar la misma lógica de limpieza de duplicados
+            filas_limpias = []
+            coordenadas_vistas = set()
+            for row in puntos_lista:
+                coord_id = (round(float(row["x"]), 2), round(float(row["y"]), 2))
+                if coord_id not in coordenadas_vistas:
+                    filas_limpias.append(row)
+                    coordenadas_vistas.add(coord_id)
+            
+            # Volver a convertir a texto JSON
+            puntos_json_limpio = json.dumps(filas_limpias)
+            
+            # Reemplazar los puntos viejos por los limpios en el HTML
+            nuevo_content = content.replace(f"const puntos = {puntos_raw};", f"const puntos = {puntos_json_limpio};")
+            
+            st.sidebar.success(f"✅ ¡Corregido! Pasó de {len(puntos_lista)} a {len(filas_limpias)} piezas reales.")
+            
+            # Botón de descarga para el archivo corregido
+            st.sidebar.download_button(
+                label="📥 DESCARGAR HTML CORREGIDO",
+                data=nuevo_content,
+                file_name=f"Corregido_{html_file.name}",
+                mime="text/html"
+            )
+        except Exception as e:
+            st.sidebar.error(f"Ocurrió un error al procesar los datos: {e}")
+    else:
+        st.sidebar.error("No se pudo encontrar la base de datos en este archivo HTML. Verifica que sea un archivo generado por esta App.")
