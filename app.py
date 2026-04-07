@@ -4,8 +4,9 @@ import pandas as pd
 from PIL import Image
 import base64
 from io import BytesIO
-import re      # Importación añadida para leer HTMLs
-import json    # Importación añadida para procesar HTMLs
+import re      
+import json    
+import zipfile # <--- NUEVA LIBRERÍA PARA CREAR EL ZIP
 
 # =========================================================
 # CONFIGURACIÓN Y CATÁLOGO
@@ -81,7 +82,7 @@ if xml_file and img_file:
                     "color_plot": COLOR_CATALOG.get(normalizar_color(attrs.get("color", "")), "gray")
                 })
     
-    # --- INICIO DE BLOQUE PARA ELIMINAR DUPLICADOS EN ARCHIVOS NUEVOS ---
+    # --- BLOQUE PARA ELIMINAR DUPLICADOS EN ARCHIVOS NUEVOS ---
     filas_limpias = []
     coordenadas_vistas = set()
     for row in rows:
@@ -90,7 +91,6 @@ if xml_file and img_file:
             filas_limpias.append(row)
             coordenadas_vistas.add(coord_id)
     rows = filas_limpias
-    # --- FIN DE BLOQUE PARA ELIMINAR DUPLICADOS ---
 
     df = pd.DataFrame(rows)
     df["color_norm"] = df.apply(ajustar_color_por_tipo, axis=1)
@@ -440,14 +440,14 @@ if xml_file and img_file:
                     const key = p.color_norm.replace(/_/g, ' ').toUpperCase() + " (" + p.tamaño + ")";
                     groups[p.tipo][key] = (groups[p.tipo][key] || 0) + 1;
                 }});
-                let html = '<h4 class="fw-bold mb-4">RESUMEN DE COMPONENTES</h4>';
+                let html = '<h4 class=\"fw-bold mb-4\">RESUMEN DE COMPONENTES</h4>';
                 for(let t in groups) {{
                     let subtotal = Object.values(groups[t]).reduce((a, b) => a + b, 0);
-                    html += '<div class="category-row"><span>' + t.toUpperCase() + '</span><span class="badge bg-primary">' + subtotal + ' pz</span></div><table class="item-table"><tbody>';
-                    for(let k in groups[t]) html += '<tr><td>' + k + '</td><td class="text-end fw-bold">' + groups[t][k] + ' pz</td></tr>';
+                    html += '<div class=\"category-row\"><span>' + t.toUpperCase() + '</span><span class=\"badge bg-primary\">' + subtotal + ' pz</span></div><table class=\"item-table\"><tbody>';
+                    for(let k in groups[t]) html += '<tr><td>' + k + '</td><td class=\"text-end fw-bold\">' + groups[t][k] + ' pz</td></tr>';
                     html += '</tbody></table>';
                 }}
-                html += '<div class="total-banner">CANTIDAD TOTAL: ' + totalGral + ' PIEZAS</div>';
+                html += '<div class=\"total-banner\">CANTIDAD TOTAL: ' + totalGral + ' PIEZAS</div>';
                 container.innerHTML = html;
             }}
 
@@ -483,45 +483,64 @@ st.sidebar.info("Sube uno o varios archivos HTML generados previamente para elim
 html_files = st.sidebar.file_uploader("Subir HTML(s) a corregir", type=["html"], accept_multiple_files=True)
 
 if html_files:
-    for i, html_file in enumerate(html_files):
-        # Leer el contenido del HTML actual
-        content = html_file.read().decode("utf-8")
-        
-        # Usar expresiones regulares para encontrar dónde están guardados los puntos
-        match = re.search(r'const puntos = (\[.*?\]);', content, re.DOTALL)
-        
-        if match:
-            puntos_raw = match.group(1)
-            try:
-                # Convertir el texto a una lista de Python
-                puntos_lista = json.loads(puntos_raw)
-                
-                # Aplicar la misma lógica de limpieza de duplicados
-                filas_limpias = []
-                coordenadas_vistas = set()
-                for row in puntos_lista:
-                    coord_id = (round(float(row["x"]), 2), round(float(row["y"]), 2))
-                    if coord_id not in coordenadas_vistas:
-                        filas_limpias.append(row)
-                        coordenadas_vistas.add(coord_id)
-                
-                # Volver a convertir a texto JSON
-                puntos_json_limpio = json.dumps(filas_limpias)
-                
-                # Reemplazar los puntos viejos por los limpios en el HTML
-                nuevo_content = content.replace(f"const puntos = {puntos_raw};", f"const puntos = {puntos_json_limpio};")
-                
-                st.sidebar.success(f"✅ {html_file.name}: Pasó de {len(puntos_lista)} a {len(filas_limpias)} piezas.")
-                
-                # Botón de descarga para CADA archivo corregido
-                st.sidebar.download_button(
-                    label=f"📥 DESCARGAR {html_file.name}",
-                    data=nuevo_content,
-                    file_name=f"Corregido_{html_file.name}",
-                    mime="text/html",
-                    key=f"dl_btn_html_{i}"
-                )
-            except Exception as e:
-                st.sidebar.error(f"Error procesando {html_file.name}: {e}")
-        else:
-            st.sidebar.error(f"No se encontró la base de datos en {html_file.name}. ¿Es un archivo válido?")
+    # 1. Crear un espacio en memoria para construir el archivo ZIP
+    zip_buffer = BytesIO()
+    
+    # 2. Abrir el archivo ZIP en modo escritura
+    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+        for i, html_file in enumerate(html_files):
+            # Leer el contenido del HTML actual
+            content = html_file.read().decode("utf-8")
+            
+            # Usar expresiones regulares para encontrar dónde están guardados los puntos
+            match = re.search(r'const puntos = (\[.*?\]);', content, re.DOTALL)
+            
+            if match:
+                puntos_raw = match.group(1)
+                try:
+                    # Convertir el texto a una lista de Python
+                    puntos_lista = json.loads(puntos_raw)
+                    
+                    # Aplicar la misma lógica de limpieza de duplicados
+                    filas_limpias = []
+                    coordenadas_vistas = set()
+                    for row in puntos_lista:
+                        coord_id = (round(float(row["x"]), 2), round(float(row["y"]), 2))
+                        if coord_id not in coordenadas_vistas:
+                            filas_limpias.append(row)
+                            coordenadas_vistas.add(coord_id)
+                    
+                    # Volver a convertir a texto JSON
+                    puntos_json_limpio = json.dumps(filas_limpias)
+                    
+                    # Reemplazar los puntos viejos por los limpios en el HTML
+                    nuevo_content = content.replace(f"const puntos = {puntos_raw};", f"const puntos = {puntos_json_limpio};")
+                    
+                    st.sidebar.success(f"✅ {html_file.name}: Pasó de {len(puntos_lista)} a {len(filas_limpias)} piezas.")
+                    
+                    # 3. Agregar el archivo HTML recién corregido dentro del ZIP
+                    zip_file.writestr(f"Corregido_{html_file.name}", nuevo_content)
+                    
+                    # Botón individual de descarga (opcional, pero útil si solo quieres bajar uno)
+                    with st.sidebar.expander(f"Opciones {html_file.name}", expanded=False):
+                        st.download_button(
+                            label=f"📥 Bajar individualmente",
+                            data=nuevo_content,
+                            file_name=f"Corregido_{html_file.name}",
+                            mime="text/html",
+                            key=f"dl_btn_html_{i}"
+                        )
+                except Exception as e:
+                    st.sidebar.error(f"Error procesando {html_file.name}: {e}")
+            else:
+                st.sidebar.error(f"No se encontró la base de datos en {html_file.name}. ¿Es un archivo válido?")
+
+    # 4. Mostrar el botón de descarga del ZIP completo una vez que termine de procesar todos
+    st.sidebar.divider()
+    st.sidebar.download_button(
+        label="📦 DESCARGAR TODOS EN ZIP",
+        data=zip_buffer.getvalue(),
+        file_name="HTMLs_Corregidos.zip",
+        mime="application/zip",
+        type="primary" # Lo pone en color azul para que resalte
+    )
