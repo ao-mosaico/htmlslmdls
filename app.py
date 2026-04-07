@@ -32,7 +32,10 @@ COLOR_CATALOG = {
     "orquida": "#DA70D6", "purpura": "#800080", "salmon": "#FA8072",
     "gris": "#808080", "azul_agua": "#00FFFF", "verde_jade": "#00A86B",
     "morado": "#7A288A", "otro": "#D3D3D3",
-    "vitral": "#9370DB", "ab_tanzanita": "#483D8B"
+    "vitral": "#9370DB", "ab_tanzanita": "#483D8B",
+    
+    # --- NUEVOS COLORES AÑADIDOS ---
+    "fuschia_metalico": "#FF1493"
 }
 
 def normalizar_color(c):
