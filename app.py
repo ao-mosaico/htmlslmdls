@@ -385,7 +385,7 @@ with tab1:
                             viewer.addOverlay({ element: elt, location: new OpenSeadragon.Point(p.x/imgW, p.y/imgW), placement: 'CENTER' });
                         });
 
-                        // LÓGICA MODO DIAGRAMA (ALGORITMO ANTI-COLISIÓN)
+                        // LÓGICA MODO DIAGRAMA CON ANCLAJE EXACTO
                         if (diagramMode) {
                             const groupsByType = {};
                             filtered.forEach(p => {
@@ -423,10 +423,29 @@ with tab1:
 
                                 clusters.forEach(cluster => {
                                     let count = cluster.points.length;
+                                    
+                                    // 1. Calcular el centroide matemático (promedio)
                                     let sumX = 0, sumY = 0;
                                     cluster.points.forEach(p => { sumX += (p.x / imgW); sumY += (p.y / imgW); });
-                                    let cX = sumX / count;
-                                    let cY = sumY / count;
+                                    let centroidX = sumX / count;
+                                    let centroidY = sumY / count;
+                                    
+                                    // 2. BUSCAR EL PUNTO REAL MÁS CERCANO AL CENTROIDE
+                                    let bestP = cluster.points[0];
+                                    let minDist = Infinity;
+                                    cluster.points.forEach(p => {
+                                        let pX = p.x / imgW;
+                                        let pY = p.y / imgW;
+                                        let d = Math.sqrt(Math.pow(pX - centroidX, 2) + Math.pow(pY - centroidY, 2));
+                                        if (d < minDist) {
+                                            minDist = d;
+                                            bestP = p; // Este es un punto físico real
+                                        }
+                                    });
+
+                                    // Usar el punto real como ancla, en lugar del centroide flotante
+                                    let cX = bestP.x / imgW;
+                                    let cY = bestP.y / imgW;
                                     
                                     let isLeft = cX < 0.5;
                                     let edgeX = isLeft ? 0.05 : 0.95;
@@ -436,15 +455,13 @@ with tab1:
                                 });
                             }
 
-                            // Función para evitar que las etiquetas choquen verticalmente
+                            // Función anti-colisión
                             function spreadLabels(labels) {
                                 if (labels.length === 0) return;
                                 labels.sort((a, b) => a.cY - b.cY);
                                 
-                                // El gap dinámico previene colisiones dependiendo de cuántas etiquetas haya
                                 const MIN_GAP = Math.min(0.045, 0.95 / labels.length); 
                                 
-                                // Bucle de separación (Fuerza de repulsión)
                                 for(let iter = 0; iter < 20; iter++) {
                                     for (let i = 0; i < labels.length - 1; i++) {
                                         let overlap = MIN_GAP - (labels[i+1].adjY - labels[i].adjY);
@@ -455,7 +472,6 @@ with tab1:
                                     }
                                 }
                                 
-                                // Re-centrar si se salieron de los límites de la pantalla
                                 let topOverflow = 0.02 - labels[0].adjY;
                                 if (topOverflow > 0) labels.forEach(l => l.adjY += topOverflow);
                                 
@@ -466,16 +482,14 @@ with tab1:
                             spreadLabels(leftLabels);
                             spreadLabels(rightLabels);
 
-                            // DIBUJAR LÍNEAS ESCALONADAS Y ETIQUETAS
+                            // DIBUJAR LÍNEAS Y ETIQUETAS
                             [...leftLabels, ...rightLabels].forEach(lbl => {
                                 let { cX, cY, adjY, edgeX, cluster, k, count } = lbl;
                                 let color = cluster.color;
                                 let isLeft = cX < 0.5;
                                 
-                                // Para hacer la línea en "escalón", encontramos el punto medio X
                                 let midX = cX + (edgeX - cX) * 0.5; 
                                 
-                                // 1. Línea Horizontal (desde la pieza hacia afuera)
                                 let w1 = Math.abs(midX - cX);
                                 const hLine1 = document.createElement("div");
                                 hLine1.style.borderTop = `2px dashed ${color}`;
@@ -483,7 +497,6 @@ with tab1:
                                 hLine1.style.pointerEvents = "none";
                                 viewer.addOverlay({ element: hLine1, location: new OpenSeadragon.Rect(Math.min(cX, midX), cY, w1, 0.0001) });
 
-                                // 2. Línea Vertical (el doblez hacia la etiqueta, si es que se movió)
                                 let h2 = Math.abs(adjY - cY);
                                 if (h2 > 0.001) { 
                                     const vLine = document.createElement("div");
@@ -493,7 +506,6 @@ with tab1:
                                     viewer.addOverlay({ element: vLine, location: new OpenSeadragon.Rect(midX, Math.min(cY, adjY), 0.0001, h2) });
                                 }
 
-                                // 3. Línea Horizontal (Llegando a la etiqueta)
                                 let w3 = Math.abs(edgeX - midX);
                                 const hLine3 = document.createElement("div");
                                 hLine3.style.borderTop = `2px dashed ${color}`;
@@ -501,7 +513,7 @@ with tab1:
                                 hLine3.style.pointerEvents = "none";
                                 viewer.addOverlay({ element: hLine3, location: new OpenSeadragon.Rect(Math.min(midX, edgeX), adjY, w3, 0.0001) });
 
-                                // Punto ancla central del grupo de piezas
+                                // PUNTO ANCLA CENTRAL (AHORA SIEMPRE ESTÁ SOBRE UNA PIEZA)
                                 const anchorDot = document.createElement("div");
                                 anchorDot.style.width = "10px";
                                 anchorDot.style.height = "10px";
@@ -511,7 +523,6 @@ with tab1:
                                 anchorDot.style.boxShadow = "0 0 4px black";
                                 viewer.addOverlay({ element: anchorDot, location: new OpenSeadragon.Point(cX, cY), placement: 'CENTER' });
 
-                                // La Etiqueta
                                 const elLabel = document.createElement("div");
                                 elLabel.className = "diagram-label";
                                 elLabel.style.borderLeftColor = isLeft ? color : "transparent";
