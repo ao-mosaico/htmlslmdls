@@ -185,7 +185,6 @@ with tab1:
                     .dot { width: 14px; height: 14px; border-radius: 50%; border: none; opacity: 0.7; cursor: pointer; transition: transform 0.2s, opacity 0.2s; }
                     .dot.selected { opacity: 1 !important; border: 3px solid #fff !important; box-shadow: 0 0 15px #fff; transform: scale(1.6); z-index: 999 !important; }
 
-                    /* NUEVO ESTILO DE ETIQUETAS AL MARGEN */
                     .diagram-label {
                         background: rgba(255, 255, 255, 0.90);
                         backdrop-filter: blur(4px);
@@ -373,7 +372,6 @@ with tab1:
                             const elt = document.createElement("div");
                             elt.className = "dot"; elt.style.backgroundColor = p.color_plot;
                             
-                            // Ocultar los puntos originales si estamos en modo diagrama para limpiar más la vista
                             if(diagramMode) elt.style.opacity = "0.15"; 
                             
                             elt.addEventListener('pointerdown', (e) => {
@@ -387,7 +385,7 @@ with tab1:
                             viewer.addOverlay({ element: elt, location: new OpenSeadragon.Point(p.x/imgW, p.y/imgW), placement: 'CENTER' });
                         });
 
-                        // LÓGICA DEL NUEVO MODO DIAGRAMA (LÍNEAS A LOS MÁRGENES)
+                        // LÓGICA MODO DIAGRAMA (ALGORITMO ANTI-COLISIÓN)
                         if (diagramMode) {
                             const groupsByType = {};
                             filtered.forEach(p => {
@@ -395,6 +393,9 @@ with tab1:
                                 if (!groupsByType[key]) groupsByType[key] = [];
                                 groupsByType[key].push(p);
                             });
+
+                            let leftLabels = [];
+                            let rightLabels = [];
 
                             for (let k in groupsByType) {
                                 let points = groupsByType[k];
@@ -422,63 +423,111 @@ with tab1:
 
                                 clusters.forEach(cluster => {
                                     let count = cluster.points.length;
-                                    
-                                    // 1. Calcular el centro exacto del cluster
                                     let sumX = 0, sumY = 0;
                                     cluster.points.forEach(p => { sumX += (p.x / imgW); sumY += (p.y / imgW); });
                                     let cX = sumX / count;
                                     let cY = sumY / count;
                                     
-                                    // 2. Determinar si va a la izquierda o derecha
                                     let isLeft = cX < 0.5;
-                                    let edgeX = isLeft ? 0.05 : 0.95; // Margen del 5%
-                                    let width = Math.abs(edgeX - cX);
+                                    let edgeX = isLeft ? 0.05 : 0.95;
                                     
-                                    // 3. Crear la Línea Guía (Punteada)
-                                    const line = document.createElement("div");
-                                    line.style.borderTop = `2px dashed ${cluster.color}`;
-                                    line.style.opacity = "0.8";
-                                    line.style.pointerEvents = "none";
-                                    
-                                    viewer.addOverlay({
-                                        element: line,
-                                        location: new OpenSeadragon.Rect(Math.min(cX, edgeX), cY, width, 0.0001),
-                                        checkResize: false
-                                    });
-
-                                    // 4. Crear el Punto Ancla Central
-                                    const anchorDot = document.createElement("div");
-                                    anchorDot.style.width = "10px";
-                                    anchorDot.style.height = "10px";
-                                    anchorDot.style.backgroundColor = cluster.color;
-                                    anchorDot.style.borderRadius = "50%";
-                                    anchorDot.style.border = "2px solid white";
-                                    anchorDot.style.boxShadow = "0 0 4px black";
-                                    
-                                    viewer.addOverlay({
-                                        element: anchorDot,
-                                        location: new OpenSeadragon.Point(cX, cY),
-                                        placement: 'CENTER'
-                                    });
-
-                                    // 5. Crear la Etiqueta en el Borde
-                                    const lbl = document.createElement("div");
-                                    lbl.className = "diagram-label";
-                                    lbl.style.borderLeftColor = isLeft ? cluster.color : "transparent";
-                                    lbl.style.borderRightColor = isLeft ? "transparent" : cluster.color;
-                                    lbl.style.borderLeftWidth = isLeft ? "6px" : "0px";
-                                    lbl.style.borderRightWidth = isLeft ? "0px" : "6px";
-                                    lbl.style.borderStyle = "solid";
-                                    lbl.innerHTML = `<span style="color:${cluster.color}; font-size:14px;">●</span> <b>${count}</b> ${k}`;
-
-                                    viewer.addOverlay({
-                                        element: lbl,
-                                        location: new OpenSeadragon.Point(edgeX, cY),
-                                        placement: isLeft ? 'LEFT' : 'RIGHT',
-                                        checkResize: false
-                                    });
+                                    let obj = { cluster, cX, cY, adjY: cY, edgeX, k, count };
+                                    if (isLeft) leftLabels.push(obj); else rightLabels.push(obj);
                                 });
                             }
+
+                            // Función para evitar que las etiquetas choquen verticalmente
+                            function spreadLabels(labels) {
+                                if (labels.length === 0) return;
+                                labels.sort((a, b) => a.cY - b.cY);
+                                
+                                // El gap dinámico previene colisiones dependiendo de cuántas etiquetas haya
+                                const MIN_GAP = Math.min(0.045, 0.95 / labels.length); 
+                                
+                                // Bucle de separación (Fuerza de repulsión)
+                                for(let iter = 0; iter < 20; iter++) {
+                                    for (let i = 0; i < labels.length - 1; i++) {
+                                        let overlap = MIN_GAP - (labels[i+1].adjY - labels[i].adjY);
+                                        if (overlap > 0) {
+                                            labels[i].adjY -= overlap * 0.5;
+                                            labels[i+1].adjY += overlap * 0.5;
+                                        }
+                                    }
+                                }
+                                
+                                // Re-centrar si se salieron de los límites de la pantalla
+                                let topOverflow = 0.02 - labels[0].adjY;
+                                if (topOverflow > 0) labels.forEach(l => l.adjY += topOverflow);
+                                
+                                let bottomOverflow = labels[labels.length-1].adjY - 0.98;
+                                if (bottomOverflow > 0) labels.forEach(l => l.adjY -= bottomOverflow);
+                            }
+
+                            spreadLabels(leftLabels);
+                            spreadLabels(rightLabels);
+
+                            // DIBUJAR LÍNEAS ESCALONADAS Y ETIQUETAS
+                            [...leftLabels, ...rightLabels].forEach(lbl => {
+                                let { cX, cY, adjY, edgeX, cluster, k, count } = lbl;
+                                let color = cluster.color;
+                                let isLeft = cX < 0.5;
+                                
+                                // Para hacer la línea en "escalón", encontramos el punto medio X
+                                let midX = cX + (edgeX - cX) * 0.5; 
+                                
+                                // 1. Línea Horizontal (desde la pieza hacia afuera)
+                                let w1 = Math.abs(midX - cX);
+                                const hLine1 = document.createElement("div");
+                                hLine1.style.borderTop = `2px dashed ${color}`;
+                                hLine1.style.opacity = "0.6";
+                                hLine1.style.pointerEvents = "none";
+                                viewer.addOverlay({ element: hLine1, location: new OpenSeadragon.Rect(Math.min(cX, midX), cY, w1, 0.0001) });
+
+                                // 2. Línea Vertical (el doblez hacia la etiqueta, si es que se movió)
+                                let h2 = Math.abs(adjY - cY);
+                                if (h2 > 0.001) { 
+                                    const vLine = document.createElement("div");
+                                    vLine.style.borderLeft = `2px dashed ${color}`;
+                                    vLine.style.opacity = "0.6";
+                                    vLine.style.pointerEvents = "none";
+                                    viewer.addOverlay({ element: vLine, location: new OpenSeadragon.Rect(midX, Math.min(cY, adjY), 0.0001, h2) });
+                                }
+
+                                // 3. Línea Horizontal (Llegando a la etiqueta)
+                                let w3 = Math.abs(edgeX - midX);
+                                const hLine3 = document.createElement("div");
+                                hLine3.style.borderTop = `2px dashed ${color}`;
+                                hLine3.style.opacity = "0.6";
+                                hLine3.style.pointerEvents = "none";
+                                viewer.addOverlay({ element: hLine3, location: new OpenSeadragon.Rect(Math.min(midX, edgeX), adjY, w3, 0.0001) });
+
+                                // Punto ancla central del grupo de piezas
+                                const anchorDot = document.createElement("div");
+                                anchorDot.style.width = "10px";
+                                anchorDot.style.height = "10px";
+                                anchorDot.style.backgroundColor = color;
+                                anchorDot.style.borderRadius = "50%";
+                                anchorDot.style.border = "2px solid white";
+                                anchorDot.style.boxShadow = "0 0 4px black";
+                                viewer.addOverlay({ element: anchorDot, location: new OpenSeadragon.Point(cX, cY), placement: 'CENTER' });
+
+                                // La Etiqueta
+                                const elLabel = document.createElement("div");
+                                elLabel.className = "diagram-label";
+                                elLabel.style.borderLeftColor = isLeft ? color : "transparent";
+                                elLabel.style.borderRightColor = isLeft ? "transparent" : color;
+                                elLabel.style.borderLeftWidth = isLeft ? "6px" : "0px";
+                                elLabel.style.borderRightWidth = isLeft ? "0px" : "6px";
+                                elLabel.style.borderStyle = "solid";
+                                elLabel.innerHTML = `<span style="color:${color}; font-size:14px;">●</span> <b>${count}</b> ${k}`;
+
+                                viewer.addOverlay({
+                                    element: elLabel,
+                                    location: new OpenSeadragon.Point(edgeX, adjY),
+                                    placement: isLeft ? 'LEFT' : 'RIGHT',
+                                    checkResize: false
+                                });
+                            });
                         }
 
                         renderSummary(filtered);
