@@ -9,7 +9,7 @@ import json
 import zipfile 
 
 # =========================================================
-# CONFIGURACIÓN Y CATÁLOGO
+# CONFIGURACIÓN Y CATÁLOGO.
 # =========================================================
 st.set_page_config(page_title="Gestor de Mosaicos Pro", layout="wide")
 
