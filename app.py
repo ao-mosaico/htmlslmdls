@@ -33,8 +33,6 @@ COLOR_CATALOG = {
     "gris": "#808080", "azul_agua": "#00FFFF", "verde_jade": "#00A86B",
     "morado": "#7A288A", "otro": "#D3D3D3",
     "vitral": "#9370DB", "ab_tanzanita": "#483D8B",
-    
-    # --- NUEVOS COLORES AÑADIDOS ---
     "fuschia_metalico": "#FF1493"
 }
 
@@ -71,7 +69,7 @@ with tab1:
         nombre_modelo = st.text_input("Nombre del Modelo (Ej: PB-8612 A)")
         xml_file = st.file_uploader("1. Subir archivo XML", type=["xml"])
     with col_b:
-        st.write("") # Espaciador
+        st.write("") 
         st.write("")
         img_file = st.file_uploader("2. Subir Imagen base", type=["jpg", "png", "jpeg"])
 
@@ -131,7 +129,6 @@ with tab1:
             btn_tipo_fs = ' '.join([f'<button class="btn btn-outline-light btn-sm btn-filter-fs" data-val="{t}" onclick="syncAndFilter(\'tipo\', \'{t}\', this)">{t.upper()}</button>' for t in tipos_unicos])
             btn_color_fs = ' '.join([f'<button class="btn btn-outline-light btn-sm btn-filter-fs" style="text-align: left;" data-val="{c}" onclick="syncAndFilter(\'color\', \'{c}\', this)"><span style="display:inline-block;width:10px;height:10px;background:{COLOR_CATALOG.get(c, "gray")};margin-right:8px;border-radius:50%"></span>{c.replace("_", " ").upper()}</button>' for c in colores_unicos])
 
-            # HTML SIMPLIFICADO (Sin Modo Diagrama)
             html_template = """
             <!DOCTYPE html>
             <html>
@@ -161,6 +158,7 @@ with tab1:
                     .btn-zoom-in { background: #1abc9c !important; }
                     .btn-zoom-out { background: #ffb7c5 !important; color: #333 !important; }
                     .btn-home { background: #3498db !important; }
+                    .btn-diagrama { background: #f39c12 !important; font-size: 20px; }
 
                     .btn-fs { position: absolute; top: 125px; right: 15px; z-index: 1005; background: #fff; border: 2px solid #2c3e50; padding: 8px 16px; border-radius: 20px; font-weight: bold; cursor: pointer; }
 
@@ -186,6 +184,21 @@ with tab1:
                     
                     .dot { width: 14px; height: 14px; border-radius: 50%; border: none; opacity: 0.7; cursor: pointer; transition: transform 0.2s, opacity 0.2s; }
                     .dot.selected { opacity: 1 !important; border: 3px solid #fff !important; box-shadow: 0 0 15px #fff; transform: scale(1.6); z-index: 999 !important; }
+
+                    /* NUEVO ESTILO DE ETIQUETAS AL MARGEN */
+                    .diagram-label {
+                        background: rgba(255, 255, 255, 0.90);
+                        backdrop-filter: blur(4px);
+                        padding: 6px 12px;
+                        border-radius: 6px;
+                        font-size: 12px;
+                        font-weight: bold;
+                        color: #2c3e50;
+                        box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+                        pointer-events: none;
+                        white-space: nowrap;
+                        font-family: monospace;
+                    }
 
                     .report-container { position: relative; z-index: 1; background: #f4f7f6; padding-top: 20px; }
                     .summary-card { background: white; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); padding: 25px; margin-bottom: 40px; }
@@ -219,6 +232,14 @@ with tab1:
                         <span class="fs-close-btn" onclick="toggleFsSidebar()">×</span>
                         <div style="clear:both;"></div>
                         <h5 class="mb-4">🔍 Filtros de Inspección</h5>
+                        
+                        <div class="sidebar-section-title" style="margin-top: 20px;">NIVEL DE AGRUPAMIENTO DIAGRAMA</div>
+                        <p style="font-size: 11px; color: #bdc3c7; line-height: 1.3; margin-bottom: 8px;">Ajusta la barra para dividir los componentes en grupos o juntar las cantidades:</p>
+                        <input type="range" id="sensitivity-slider" min="1" max="50" value="10" style="width: 100%; cursor: pointer;">
+                        <div style="display: flex; justify-content: space-between; font-size: 10px; color: #ecf0f1; margin-bottom: 25px; font-weight: bold;">
+                            <span>← SEPARAR GRUPOS</span>
+                            <span>JUNTAR CANTIDADES →</span>
+                        </div>
 
                         <div class="sidebar-section-title">TIPO DE COMPONENTE</div>
                         <div class="d-grid gap-2 mb-4" id="group-tipo-fs">
@@ -240,6 +261,7 @@ with tab1:
                         <div id="btn-in" class="nav-btn btn-zoom-in" title="Acercar">+</div>
                         <div id="btn-out" class="nav-btn btn-zoom-out" title="Alejar">−</div>
                         <div id="btn-home" class="nav-btn btn-home" title="Centrar">🏠</div>
+                        <div id="btn-diagrama" class="nav-btn btn-diagrama" title="Activar Modo Diagrama (Márgenes)">📊</div>
                     </div>
                     
                     <button id="toggle-sidebar-btn" onclick="toggleFsSidebar()">☰ Filtros</button>
@@ -254,6 +276,7 @@ with tab1:
                 <script>
                     const puntos = __PUNTOS_JSON__;
                     const imgW = __WIDTH__;
+                    let DISTANCE_THRESHOLD = 0.10;
                     
                     const viewer = OpenSeadragon({
                         id: "viewer-container",
@@ -269,6 +292,12 @@ with tab1:
                     });
 
                     let filterT = 'all', filterC = 'all', lastSelected = null;
+                    let diagramMode = false;
+
+                    document.getElementById('sensitivity-slider').addEventListener('input', function(e) {
+                        DISTANCE_THRESHOLD = e.target.value / 100.0;
+                        if (diagramMode) drawPoints(); 
+                    });
 
                     document.addEventListener('fullscreenchange', () => {
                         if (!document.fullscreenElement) {
@@ -343,6 +372,10 @@ with tab1:
                         filtered.forEach(p => {
                             const elt = document.createElement("div");
                             elt.className = "dot"; elt.style.backgroundColor = p.color_plot;
+                            
+                            // Ocultar los puntos originales si estamos en modo diagrama para limpiar más la vista
+                            if(diagramMode) elt.style.opacity = "0.15"; 
+                            
                             elt.addEventListener('pointerdown', (e) => {
                                 e.stopPropagation();
                                 if(lastSelected) lastSelected.classList.remove('selected');
@@ -353,6 +386,100 @@ with tab1:
                             });
                             viewer.addOverlay({ element: elt, location: new OpenSeadragon.Point(p.x/imgW, p.y/imgW), placement: 'CENTER' });
                         });
+
+                        // LÓGICA DEL NUEVO MODO DIAGRAMA (LÍNEAS A LOS MÁRGENES)
+                        if (diagramMode) {
+                            const groupsByType = {};
+                            filtered.forEach(p => {
+                                const key = p.tipo.toUpperCase() + " " + p.color_norm.replace(/_/g, ' ').toUpperCase() + " " + p.tamaño;
+                                if (!groupsByType[key]) groupsByType[key] = [];
+                                groupsByType[key].push(p);
+                            });
+
+                            for (let k in groupsByType) {
+                                let points = groupsByType[k];
+                                let clusters = [];
+
+                                points.forEach(p => {
+                                    let pX = p.x / imgW;
+                                    let pY = p.y / imgW;
+                                    let addedToCluster = false;
+                                    for (let i = 0; i < clusters.length; i++) {
+                                        let cluster = clusters[i];
+                                        for (let cp of cluster.points) {
+                                            let cpX = cp.x / imgW;
+                                            let cpY = cp.y / imgW;
+                                            if (Math.sqrt(Math.pow(pX - cpX, 2) + Math.pow(pY - cpY, 2)) < DISTANCE_THRESHOLD) {
+                                                cluster.points.push(p);
+                                                addedToCluster = true;
+                                                break;
+                                            }
+                                        }
+                                        if (addedToCluster) break;
+                                    }
+                                    if (!addedToCluster) clusters.push({ points: [p], color: p.color_plot });
+                                });
+
+                                clusters.forEach(cluster => {
+                                    let count = cluster.points.length;
+                                    
+                                    // 1. Calcular el centro exacto del cluster
+                                    let sumX = 0, sumY = 0;
+                                    cluster.points.forEach(p => { sumX += (p.x / imgW); sumY += (p.y / imgW); });
+                                    let cX = sumX / count;
+                                    let cY = sumY / count;
+                                    
+                                    // 2. Determinar si va a la izquierda o derecha
+                                    let isLeft = cX < 0.5;
+                                    let edgeX = isLeft ? 0.05 : 0.95; // Margen del 5%
+                                    let width = Math.abs(edgeX - cX);
+                                    
+                                    // 3. Crear la Línea Guía (Punteada)
+                                    const line = document.createElement("div");
+                                    line.style.borderTop = `2px dashed ${cluster.color}`;
+                                    line.style.opacity = "0.8";
+                                    line.style.pointerEvents = "none";
+                                    
+                                    viewer.addOverlay({
+                                        element: line,
+                                        location: new OpenSeadragon.Rect(Math.min(cX, edgeX), cY, width, 0.0001),
+                                        checkResize: false
+                                    });
+
+                                    // 4. Crear el Punto Ancla Central
+                                    const anchorDot = document.createElement("div");
+                                    anchorDot.style.width = "10px";
+                                    anchorDot.style.height = "10px";
+                                    anchorDot.style.backgroundColor = cluster.color;
+                                    anchorDot.style.borderRadius = "50%";
+                                    anchorDot.style.border = "2px solid white";
+                                    anchorDot.style.boxShadow = "0 0 4px black";
+                                    
+                                    viewer.addOverlay({
+                                        element: anchorDot,
+                                        location: new OpenSeadragon.Point(cX, cY),
+                                        placement: 'CENTER'
+                                    });
+
+                                    // 5. Crear la Etiqueta en el Borde
+                                    const lbl = document.createElement("div");
+                                    lbl.className = "diagram-label";
+                                    lbl.style.borderLeftColor = isLeft ? cluster.color : "transparent";
+                                    lbl.style.borderRightColor = isLeft ? "transparent" : cluster.color;
+                                    lbl.style.borderLeftWidth = isLeft ? "6px" : "0px";
+                                    lbl.style.borderRightWidth = isLeft ? "0px" : "6px";
+                                    lbl.style.borderStyle = "solid";
+                                    lbl.innerHTML = `<span style="color:${cluster.color}; font-size:14px;">●</span> <b>${count}</b> ${k}`;
+
+                                    viewer.addOverlay({
+                                        element: lbl,
+                                        location: new OpenSeadragon.Point(edgeX, cY),
+                                        placement: isLeft ? 'LEFT' : 'RIGHT',
+                                        checkResize: false
+                                    });
+                                });
+                            }
+                        }
 
                         renderSummary(filtered);
                     }
@@ -386,6 +513,12 @@ with tab1:
                     document.getElementById('btn-in').onclick = () => viewer.viewport.zoomBy(1.4);
                     document.getElementById('btn-out').onclick = () => viewer.viewport.zoomBy(0.7);
                     document.getElementById('btn-home').onclick = () => viewer.viewport.goHome();
+                    
+                    document.getElementById('btn-diagrama').onclick = () => {
+                        diagramMode = !diagramMode;
+                        document.getElementById('btn-diagrama').style.background = diagramMode ? '#e74c3c' : '#f39c12';
+                        drawPoints();
+                    };
                 </script>
             </body>
             </html>
@@ -402,7 +535,6 @@ with tab1:
 
             st.success("✅ ¡Reporte generado exitosamente!")
             st.download_button(label="📥 DESCARGAR REPORTE HTML", data=html_report, file_name=f"{titulo_final}.html", mime="text/html", type="primary")
-
 
 # =========================================================
 # PESTAÑA 2: REPARAR HTMLs
@@ -450,9 +582,8 @@ with tab2:
             type="primary"
         )
 
-
 # =========================================================
-# PESTAÑA 3: TABLA DE RESUMEN GLOBAL (¡NUEVO!)
+# PESTAÑA 3: TABLA DE RESUMEN GLOBAL
 # =========================================================
 with tab3:
     st.subheader("📊 Tabla Consolidada de Modelos")
@@ -467,13 +598,11 @@ with tab3:
             for file in html_files_resumen:
                 content = file.read().decode("utf-8")
                 
-                # Intentar extraer el nombre del modelo (limpiando "Componentes" y "Corregido_")
                 nombre_modelo = file.name.replace(".html", "").replace("Corregido_", "")
                 match_title = re.search(r'<title>(.*?)</title>', content, re.IGNORECASE)
                 if match_title:
                     nombre_modelo = match_title.group(1).replace("Componentes ", "").strip()
                     
-                # Extraer la cantidad total contando los puntos en el JSON interno
                 cantidad = 0
                 match_puntos = re.search(r'const puntos = (\[.*?\]);', content, re.DOTALL)
                 if match_puntos:
@@ -481,7 +610,7 @@ with tab3:
                         puntos_lista = json.loads(match_puntos.group(1))
                         cantidad = len(puntos_lista)
                     except:
-                        pass # Si falla el JSON, se queda en 0
+                        pass 
                         
                 datos_tabla.append({
                     "Nombre del Modelo": nombre_modelo, 
@@ -489,14 +618,9 @@ with tab3:
                 })
                 
         if datos_tabla:
-            # Crear el DataFrame de Pandas
             df_resumen = pd.DataFrame(datos_tabla)
-            
-            # Mostrar la tabla bonita en Streamlit
             st.dataframe(df_resumen, use_container_width=True)
-            
-            # Botón para exportar a CSV
-            csv = df_resumen.to_csv(index=False).encode('utf-8-sig') # utf-8-sig permite ver tildes bien en Excel
+            csv = df_resumen.to_csv(index=False).encode('utf-8-sig') 
             st.download_button(
                 label="📥 Exportar Tabla a Excel / CSV",
                 data=csv,
