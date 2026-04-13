@@ -234,7 +234,7 @@ with tab1:
                         
                         <div class="sidebar-section-title" style="margin-top: 20px;">NIVEL DE AGRUPAMIENTO DIAGRAMA</div>
                         <p style="font-size: 11px; color: #bdc3c7; line-height: 1.3; margin-bottom: 8px;">Ajusta la barra para dividir los componentes en grupos o juntar las cantidades:</p>
-                        <input type="range" id="sensitivity-slider" min="1" max="50" value="10" style="width: 100%; cursor: pointer;">
+                        <input type="range" id="sensitivity-slider" min="10" max="50" value="15" style="width: 100%; cursor: pointer;">
                         <div style="display: flex; justify-content: space-between; font-size: 10px; color: #ecf0f1; margin-bottom: 25px; font-weight: bold;">
                             <span>← SEPARAR GRUPOS</span>
                             <span>JUNTAR CANTIDADES →</span>
@@ -275,7 +275,8 @@ with tab1:
                 <script>
                     const puntos = __PUNTOS_JSON__;
                     const imgW = __WIDTH__;
-                    let DISTANCE_THRESHOLD = 0.10;
+                    // MODIFICADO: Valor por defecto seguro alineado con el nuevo slider (15/100)
+                    let DISTANCE_THRESHOLD = 0.15;
                     
                     const viewer = OpenSeadragon({
                         id: "viewer-container",
@@ -439,11 +440,11 @@ with tab1:
                                         let d = Math.sqrt(Math.pow(pX - centroidX, 2) + Math.pow(pY - centroidY, 2));
                                         if (d < minDist) {
                                             minDist = d;
-                                            bestP = p; // Este es un punto físico real
+                                            bestP = p; 
                                         }
                                     });
 
-                                    // Usar el punto real como ancla, en lugar del centroide flotante
+                                    // Usar el punto real como ancla
                                     let cX = bestP.x / imgW;
                                     let cY = bestP.y / imgW;
                                     
@@ -513,7 +514,6 @@ with tab1:
                                 hLine3.style.pointerEvents = "none";
                                 viewer.addOverlay({ element: hLine3, location: new OpenSeadragon.Rect(Math.min(midX, edgeX), adjY, w3, 0.0001) });
 
-                                // PUNTO ANCLA CENTRAL (AHORA SIEMPRE ESTÁ SOBRE UNA PIEZA)
                                 const anchorDot = document.createElement("div");
                                 anchorDot.style.width = "10px";
                                 anchorDot.style.height = "10px";
