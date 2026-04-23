@@ -160,6 +160,7 @@ with tab1:
                 <script src="https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/openseadragon.min.js"></script>
                 <style>
                     body { background-color: #f4f7f6; padding: 0; margin: 0; font-family: 'Segoe UI', sans-serif; overflow-x: hidden; }
+                    
                     /* MODIFICACIÓN: Encabezado blanco con texto negro */
                     .header { background: white; color: black; padding: 15px; text-align: center; border-bottom: 4px solid #1abc9c; }
                     
@@ -226,7 +227,10 @@ with tab1:
                     .category-row { background: #f1f4f8; border-left: 5px solid #3498db; padding: 10px 15px; margin-top: 15px; font-weight: bold; display: flex; justify-content: space-between; align-items: center; border-radius: 4px; }
                     .item-table { width: 100%; margin-bottom: 10px; }
                     .item-table td { padding: 10px 15px; border-bottom: 1px solid #eee; }
-                    .total-banner { background: #2c3e50; color: white; padding: 20px; border-radius: 8px; text-align: center; font-size: 1.5rem; font-weight: bold; margin-top: 25px; }
+                    
+                    /* MODIFICACIÓN: Banner de totales inferior en blanco con texto negro */
+                    .total-banner { background: white; color: black; border: 2px solid #1abc9c; padding: 20px; border-radius: 8px; text-align: center; font-size: 1.5rem; font-weight: bold; margin-top: 25px; }
+                    
                     .filter-section { background: white; padding: 15px; border-radius: 12px; margin: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
                     .fs-close-btn { float: left; cursor: pointer; font-size: 24px; margin-bottom: 10px; }
                 </style>
