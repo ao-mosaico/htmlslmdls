@@ -53,20 +53,14 @@ def ajustar_color_por_tipo(row):
 # =========================================================
 # INTERFAZ PRINCIPAL CON PESTAÑAS
 # =========================================================
-
-# 1. Cargamos y mostramos el banner de Mosaico
+# Intentamos cargar el banner de Mosaico en la UI de Streamlit
 try:
-    # Asegúrate de que el nombre del archivo coincida con el que guardaste
-    banner_img = Image.open("banner_mosaico.png") 
-    
-    # use_container_width=True hace que se adapte al ancho de la página automáticamente
-    st.image(banner_img, use_container_width=True) 
-except FileNotFoundError:
-    # Este mensaje solo aparecerá si no se encuentra la imagen, para evitar errores
-    st.error("No se pudo cargar 'banner_mosaico.png'. Asegúrate de que la imagen esté en la misma carpeta que este script.")
+    banner_img = Image.open("banner_mosaico.png")
+    st.image(banner_img, use_container_width=True)
+except Exception:
+    pass # Si no existe, simplemente continuamos sin mostrar error
 
-# 2. Mostramos el título y la línea separadora
-st.title("Gestor de Mosaicos Pro")
+st.title("💎 Gestor de Mosaicos Pro")
 st.markdown("---")
 
 tab1, tab2, tab3 = st.tabs(["✨ Crear Nuevo Reporte", "🛠️ Reparar HTMLs", "📊 Tabla de Resumen"])
@@ -125,12 +119,26 @@ with tab1:
             df["color_norm"] = df.apply(ajustar_color_por_tipo, axis=1)
             df["color_plot"] = df["color_norm"].map(lambda x: COLOR_CATALOG.get(x, "gray"))
 
+            # Conversión de la imagen principal a Base64
             img = Image.open(img_file)
             width, height = img.size
             buffered = BytesIO()
             img.save(buffered, format="JPEG")
             img_base64 = base64.b64encode(buffered.getvalue()).decode()
             data_uri = f"data:image/jpeg;base64,{img_base64}"
+
+            # --- NUEVA LÓGICA: Conversión del Logo a Base64 ---
+            logo_uri = ""
+            mostrar_logo = "none"
+            try:
+                logo_img = Image.open("banner_mosaico.png")
+                buffered_logo = BytesIO()
+                logo_img.save(buffered_logo, format="PNG")
+                logo_base64 = base64.b64encode(buffered_logo.getvalue()).decode()
+                logo_uri = f"data:image/png;base64,{logo_base64}"
+                mostrar_logo = "inline-block"
+            except Exception:
+                pass # Si falla, la variable mostrar_logo sigue en "none"
 
             puntos_json = df.to_json(orient='records')
             tipos_unicos = sorted(df["tipo"].unique().tolist())
@@ -223,7 +231,12 @@ with tab1:
                 </style>
             </head>
             <body>
-                <div class="header"><h2>__TITULO_FINAL__</h2></div>
+                <div style="background: #2c3e50; text-align: center; padding-top: 15px;">
+                    <img src="__LOGO_URI__" alt="Mosaico" style="max-height: 70px; display: __MOSTRAR_LOGO__;">
+                </div>
+                <div class="header" style="border-top: none; padding-top: 5px;">
+                    <h2>__TITULO_FINAL__</h2>
+                </div>
                 
                 <div id="main-filters" class="filter-section">
                     <div class="mb-2" id="group-tipo-main">
@@ -288,7 +301,6 @@ with tab1:
                 <script>
                     const puntos = __PUNTOS_JSON__;
                     const imgW = __WIDTH__;
-                    // MODIFICADO: Valor por defecto seguro alineado con el nuevo slider (15/100)
                     let DISTANCE_THRESHOLD = 0.15;
                     
                     const viewer = OpenSeadragon({
@@ -399,7 +411,7 @@ with tab1:
                             viewer.addOverlay({ element: elt, location: new OpenSeadragon.Point(p.x/imgW, p.y/imgW), placement: 'CENTER' });
                         });
 
-                        // LÓGICA MODO DIAGRAMA CON ANCLAJE EXACTO
+                        // LÓGICA MODO DIAGRAMA
                         if (diagramMode) {
                             const groupsByType = {};
                             filtered.forEach(p => {
@@ -437,14 +449,11 @@ with tab1:
 
                                 clusters.forEach(cluster => {
                                     let count = cluster.points.length;
-                                    
-                                    // 1. Calcular el centroide matemático (promedio)
                                     let sumX = 0, sumY = 0;
                                     cluster.points.forEach(p => { sumX += (p.x / imgW); sumY += (p.y / imgW); });
                                     let centroidX = sumX / count;
                                     let centroidY = sumY / count;
                                     
-                                    // 2. BUSCAR EL PUNTO REAL MÁS CERCANO AL CENTROIDE
                                     let bestP = cluster.points[0];
                                     let minDist = Infinity;
                                     cluster.points.forEach(p => {
@@ -457,7 +466,6 @@ with tab1:
                                         }
                                     });
 
-                                    // Usar el punto real como ancla
                                     let cX = bestP.x / imgW;
                                     let cY = bestP.y / imgW;
                                     
@@ -469,11 +477,9 @@ with tab1:
                                 });
                             }
 
-                            // Función anti-colisión
                             function spreadLabels(labels) {
                                 if (labels.length === 0) return;
                                 labels.sort((a, b) => a.cY - b.cY);
-                                
                                 const MIN_GAP = Math.min(0.045, 0.95 / labels.length); 
                                 
                                 for(let iter = 0; iter < 20; iter++) {
@@ -496,7 +502,6 @@ with tab1:
                             spreadLabels(leftLabels);
                             spreadLabels(rightLabels);
 
-                            // DIBUJAR LÍNEAS Y ETIQUETAS
                             [...leftLabels, ...rightLabels].forEach(lbl => {
                                 let { cX, cY, adjY, edgeX, cluster, k, count } = lbl;
                                 let color = cluster.color;
@@ -597,6 +602,7 @@ with tab1:
             </html>
             """
             
+            # Reemplazos finales para inyectar datos y componentes visuales en el HTML
             html_report = html_template.replace("__TITULO_FINAL__", str(titulo_final))
             html_report = html_report.replace("__BTN_TIPO_MAIN__", btn_tipo_main)
             html_report = html_report.replace("__BTN_COLOR_MAIN__", btn_color_main)
@@ -605,8 +611,12 @@ with tab1:
             html_report = html_report.replace("__PUNTOS_JSON__", puntos_json)
             html_report = html_report.replace("__WIDTH__", str(width))
             html_report = html_report.replace("__DATA_URI__", data_uri)
+            
+            # --- NUEVOS REEMPLAZOS PARA EL LOGO ---
+            html_report = html_report.replace("__LOGO_URI__", logo_uri)
+            html_report = html_report.replace("__MOSTRAR_LOGO__", mostrar_logo)
 
-            # Definimos el nombre exacto para la descarga del archivo
+            # LÓGICA DE NOMBRE DE ARCHIVO ACTUALIZADA
             nombre_archivo = f"{nombre_modelo}.html" if nombre_modelo else "Modelo_Sin_Nombre.html"
 
             st.success("✅ ¡Reporte generado exitosamente!")
