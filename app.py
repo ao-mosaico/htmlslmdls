@@ -161,8 +161,15 @@ with tab1:
                 <style>
                     body { background-color: #f4f7f6; padding: 0; margin: 0; font-family: 'Segoe UI', sans-serif; overflow-x: hidden; }
                     
-                    /* MODIFICACIÓN: Encabezado blanco con texto negro */
+                    /* MODIFICACIÓN: Encabezado blanco con texto negro y fuente tipo Mosaico */
                     .header { background: white; color: black; padding: 15px; text-align: center; border-bottom: 4px solid #1abc9c; }
+                    .header h2 { 
+                        font-family: 'Times New Roman', Georgia, serif; 
+                        letter-spacing: 2px; 
+                        text-transform: uppercase;
+                        font-weight: bold;
+                        margin: 0;
+                    }
                     
                     #info-bar {
                         position: sticky; top: 0; z-index: 2000;
