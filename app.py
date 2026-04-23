@@ -152,14 +152,19 @@ with tab1:
             <html>
             <head>
                 <title>__TITULO_FINAL__</title>
-                <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0, shrink-to-fit=no">
                 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
                 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
                 <script src="https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/openseadragon.min.js"></script>
                 <style>
-                    /* FIX RESPONSIVO GLOBAL */
+                    /* FIX RESPONSIVO GLOBAL: Bloqueo de scroll horizontal */
                     * { box-sizing: border-box; }
-                    html, body { background-color: #f4f7f6; padding: 0; margin: 0; font-family: 'Segoe UI', sans-serif; overflow-x: hidden; touch-action: manipulation; max-width: 100vw; }
+                    html, body { 
+                        background-color: #f4f7f6; padding: 0; margin: 0; 
+                        font-family: 'Segoe UI', sans-serif; 
+                        width: 100%; max-width: 100vw; overflow-x: hidden; 
+                        touch-action: manipulation; 
+                    }
                     
                     .header { background: white; color: black; padding: 25px 15px; text-align: center; border-bottom: 4px solid #1abc9c; width: 100%; }
                     .header h2 { 
@@ -172,18 +177,23 @@ with tab1:
                         word-wrap: break-word;
                     }
                     
+                    /* NUEVA ESTRUCTURA INFO-BAR: Ahora vive afuera del lienzo para no estorbar a los botones */
                     #info-bar {
                         position: sticky; top: 0; z-index: 2000;
-                        background: #f8f9fa; color: #2c3e50; padding: 12px; text-align: center;
+                        background: #f8f9fa; color: #2c3e50; padding: 12px 10px; text-align: center;
                         font-weight: bold; border-bottom: 3px solid #1abc9c; font-size: 18px;
-                        min-height: 54px; width: 100%;
+                        width: 100%; display: block;
+                        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+                        white-space: normal; word-wrap: break-word; /* Previene ensanchamiento por textos largos */
                     }
 
-                    #workspace { background: #000; position: relative; width: 100%; height: 75vh; overflow: hidden; }
+                    /* FIX WORKSPACE: Strict width bounds */
+                    #workspace { background: #000; position: relative; width: 100%; max-width: 100vw; height: 75vh; overflow: hidden; display: block; }
                     #workspace:fullscreen { height: 100vh !important; width: 100vw !important; }
                     #viewer-container { width: 100%; height: 100%; touch-action: none; }
                     
-                    .custom-nav { position: absolute; top: 125px; left: 15px; z-index: 1005; display: flex; flex-direction: column; gap: 8px; }
+                    /* BOTONES REPOSICIONADOS: Ya que la barra superior salió, los botones suben al top: 15px */
+                    .custom-nav { position: absolute; top: 15px; left: 15px; z-index: 1005; display: flex; flex-direction: column; gap: 8px; }
                     .nav-btn { width: 44px; height: 44px; border-radius: 8px; border: 2px solid white; color: white; font-size: 22px; font-weight: bold; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s;}
                     .nav-btn:hover { transform: scale(1.1); }
                     .btn-zoom-in { background: #1abc9c !important; }
@@ -191,7 +201,7 @@ with tab1:
                     .btn-home { background: #3498db !important; }
                     .btn-diagrama { background: #f39c12 !important; font-size: 20px; }
 
-                    .btn-fs { position: absolute; top: 125px; right: 15px; z-index: 1005; background: #fff; border: 2px solid #2c3e50; padding: 8px 16px; border-radius: 20px; font-weight: bold; cursor: pointer; }
+                    .btn-fs { position: absolute; top: 15px; right: 15px; z-index: 1005; background: #fff; border: 2px solid #2c3e50; padding: 8px 16px; border-radius: 20px; font-weight: bold; cursor: pointer; }
 
                     #fs-sidebar {
                         position: absolute; top: 0; right: -320px; width: 300px; height: 100%;
@@ -202,7 +212,7 @@ with tab1:
                     #fs-sidebar.active { right: 0; }
                     
                     #toggle-sidebar-btn {
-                        position: absolute; top: 185px; right: 15px; z-index: 3001;
+                        position: absolute; top: 70px; right: 15px; z-index: 3001;
                         background: #1abc9c; color: white; border: 2px solid white;
                         padding: 10px; border-radius: 8px; font-weight: bold; display: none; cursor: pointer;
                         transition: right 0.3s ease;
@@ -238,8 +248,8 @@ with tab1:
                     .report-container { position: relative; z-index: 1; background: #f4f7f6; padding-top: 20px; width: 100%; max-width: 1200px; margin: 0 auto; }
                     .summary-card { background: white; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); padding: 25px; margin: 0 15px 40px 15px; }
                     .category-row { background: #f1f4f8; border-left: 5px solid #3498db; padding: 10px 15px; margin-top: 15px; font-weight: bold; display: flex; justify-content: space-between; align-items: center; border-radius: 4px; }
-                    .item-table { width: 100%; margin-bottom: 10px; }
-                    .item-table td { padding: 10px 15px; border-bottom: 1px solid #eee; }
+                    .item-table { width: 100%; margin-bottom: 10px; table-layout: fixed; }
+                    .item-table td { padding: 10px 15px; border-bottom: 1px solid #eee; word-wrap: break-word; }
                     
                     .total-banner { background: black; color: white; padding: 25px; border-radius: 8px; text-align: center; font-size: 1.6rem; font-weight: 700; margin-top: 25px; font-family: 'Montserrat', sans-serif; letter-spacing: 1px; }
                     
@@ -274,20 +284,23 @@ with tab1:
                         .header { padding: 15px 10px; }
                         .header h2 { font-size: 1.3rem; letter-spacing: 1px; }
                         
-                        .filter-section { margin: 10px auto; width: calc(100% - 20px); padding: 15px; }
+                        .filter-section { width: calc(100% - 20px); padding: 15px 12px; margin: 10px auto; }
                         .btn-custom-filter { padding: 6px 10px; font-size: 0.7rem; }
                         .filter-group-title { font-size: 0.75rem; margin-bottom: 8px; }
                         
-                        #info-bar { font-size: 14px; padding: 10px; min-height: 44px; }
+                        #info-bar { font-size: 13px; padding: 10px; }
                         
                         .summary-card { padding: 15px; margin: 0 10px 30px 10px; }
                         .category-row { font-size: 0.9rem; padding: 8px 10px; }
                         .item-table td { padding: 8px 10px; font-size: 0.85rem; }
                         .total-banner { font-size: 1.2rem; padding: 15px; margin-top: 15px; }
                         
-                        /* Ajuste de controles flotantes sobre la imagen */
-                        .custom-nav { top: 15px; left: 10px; transform: scale(0.85); transform-origin: top left; }
-                        .btn-fs { top: 15px; right: 10px; padding: 6px 12px; font-size: 12px; }
+                        /* Ajuste perfecto de controles sobre el lienzo negro */
+                        .custom-nav { top: 10px; left: 10px; transform: scale(0.85); transform-origin: top left; }
+                        .btn-fs { top: 10px; right: 10px; padding: 6px 12px; font-size: 11px; }
+                        #toggle-sidebar-btn { top: 55px; right: 10px; font-size: 11px; padding: 6px 10px; }
+                        
+                        #workspace { height: 65vh; } /* Da más aire para scrollear la página */
                     }
 
                     .fs-close-btn { float: left; cursor: pointer; font-size: 24px; margin-bottom: 10px; }
@@ -315,6 +328,8 @@ with tab1:
                         __BTN_COLOR_MAIN__
                     </div>
                 </div>
+
+                <div id="info-bar">Selecciona un punto para ver su detalle</div>
 
                 <div id="workspace">
                     <div id="fs-sidebar">
@@ -344,8 +359,6 @@ with tab1:
                         </div>
                     </div>
 
-                    <div id="info-bar">Selecciona un punto para ver su detalle</div>
-                    
                     <div class="custom-nav">
                         <div id="btn-in" class="nav-btn btn-zoom-in" title="Acercar">+</div>
                         <div id="btn-out" class="nav-btn btn-zoom-out" title="Alejar">−</div>
