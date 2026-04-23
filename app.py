@@ -157,12 +157,12 @@ with tab1:
                 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
                 <script src="https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/openseadragon.min.js"></script>
                 <style>
-                    /* FIX RESPONSIVO GLOBAL: Bloqueo de scroll horizontal */
+                    /* FIX RESPONSIVO GLOBAL: 100% en lugar de 100vw para evitar bugs de scrollbar */
                     * { box-sizing: border-box; }
                     html, body { 
                         background-color: #f4f7f6; padding: 0; margin: 0; 
                         font-family: 'Segoe UI', sans-serif; 
-                        width: 100%; max-width: 100vw; overflow-x: hidden; 
+                        width: 100%; max-width: 100%; overflow-x: hidden; 
                         touch-action: manipulation; 
                     }
                     
@@ -177,23 +177,31 @@ with tab1:
                         word-wrap: break-word;
                     }
                     
-                    /* NUEVA ESTRUCTURA INFO-BAR: Ahora vive afuera del lienzo para no estorbar a los botones */
                     #info-bar {
                         position: sticky; top: 0; z-index: 2000;
                         background: #f8f9fa; color: #2c3e50; padding: 12px 10px; text-align: center;
                         font-weight: bold; border-bottom: 3px solid #1abc9c; font-size: 18px;
                         width: 100%; display: block;
                         box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-                        white-space: normal; word-wrap: break-word; /* Previene ensanchamiento por textos largos */
+                        overflow-wrap: break-word; word-wrap: break-word;
                     }
 
-                    /* FIX WORKSPACE: Strict width bounds */
-                    #workspace { background: #000; position: relative; width: 100%; max-width: 100vw; height: 75vh; overflow: hidden; display: block; }
+                    /* FIX WORKSPACE: Ancho estricto al 100% real del contenedor padre */
+                    #workspace { 
+                        background: #000; position: relative; 
+                        width: 100%; max-width: 100%; height: 75vh; 
+                        overflow: hidden; display: block; 
+                    }
                     #workspace:fullscreen { height: 100vh !important; width: 100vw !important; }
-                    #viewer-container { width: 100%; height: 100%; touch-action: none; }
                     
-                    /* BOTONES REPOSICIONADOS: Ya que la barra superior salió, los botones suben al top: 15px */
-                    .custom-nav { position: absolute; top: 15px; left: 15px; z-index: 1005; display: flex; flex-direction: column; gap: 8px; }
+                    /* FIX VIEWER: Absoluto para que OSD no empuje los bordes hacia afuera */
+                    #viewer-container { 
+                        position: absolute; top: 0; left: 0; 
+                        width: 100%; height: 100%; touch-action: none; 
+                    }
+                    
+                    /* BOTONES CON Z-INDEX MÁXIMO (9999) */
+                    .custom-nav { position: absolute; top: 15px; left: 15px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; }
                     .nav-btn { width: 44px; height: 44px; border-radius: 8px; border: 2px solid white; color: white; font-size: 22px; font-weight: bold; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s;}
                     .nav-btn:hover { transform: scale(1.1); }
                     .btn-zoom-in { background: #1abc9c !important; }
@@ -201,18 +209,18 @@ with tab1:
                     .btn-home { background: #3498db !important; }
                     .btn-diagrama { background: #f39c12 !important; font-size: 20px; }
 
-                    .btn-fs { position: absolute; top: 15px; right: 15px; z-index: 1005; background: #fff; border: 2px solid #2c3e50; padding: 8px 16px; border-radius: 20px; font-weight: bold; cursor: pointer; }
+                    .btn-fs { position: absolute; top: 15px; right: 15px; z-index: 9999; background: #fff; border: 2px solid #2c3e50; padding: 8px 16px; border-radius: 20px; font-weight: bold; cursor: pointer; }
 
                     #fs-sidebar {
                         position: absolute; top: 0; right: -320px; width: 300px; height: 100%;
                         background: rgba(44, 62, 80, 0.95); backdrop-filter: blur(10px);
-                        z-index: 3000; transition: 0.3s ease; padding: 25px; color: white;
+                        z-index: 10000; transition: 0.3s ease; padding: 25px; color: white;
                         box-shadow: -5px 0 15px rgba(0,0,0,0.5); overflow-y: auto;
                     }
                     #fs-sidebar.active { right: 0; }
                     
                     #toggle-sidebar-btn {
-                        position: absolute; top: 70px; right: 15px; z-index: 3001;
+                        position: absolute; top: 70px; right: 15px; z-index: 9999;
                         background: #1abc9c; color: white; border: 2px solid white;
                         padding: 10px; border-radius: 8px; font-weight: bold; display: none; cursor: pointer;
                         transition: right 0.3s ease;
@@ -249,7 +257,7 @@ with tab1:
                     .summary-card { background: white; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); padding: 25px; margin: 0 15px 40px 15px; }
                     .category-row { background: #f1f4f8; border-left: 5px solid #3498db; padding: 10px 15px; margin-top: 15px; font-weight: bold; display: flex; justify-content: space-between; align-items: center; border-radius: 4px; }
                     .item-table { width: 100%; margin-bottom: 10px; table-layout: fixed; }
-                    .item-table td { padding: 10px 15px; border-bottom: 1px solid #eee; word-wrap: break-word; }
+                    .item-table td { padding: 10px 15px; border-bottom: 1px solid #eee; word-wrap: break-word; overflow-wrap: break-word; }
                     
                     .total-banner { background: black; color: white; padding: 25px; border-radius: 8px; text-align: center; font-size: 1.6rem; font-weight: 700; margin-top: 25px; font-family: 'Montserrat', sans-serif; letter-spacing: 1px; }
                     
@@ -295,12 +303,12 @@ with tab1:
                         .item-table td { padding: 8px 10px; font-size: 0.85rem; }
                         .total-banner { font-size: 1.2rem; padding: 15px; margin-top: 15px; }
                         
-                        /* Ajuste perfecto de controles sobre el lienzo negro */
+                        /* Controles ajustados para no salirse de pantalla */
                         .custom-nav { top: 10px; left: 10px; transform: scale(0.85); transform-origin: top left; }
                         .btn-fs { top: 10px; right: 10px; padding: 6px 12px; font-size: 11px; }
                         #toggle-sidebar-btn { top: 55px; right: 10px; font-size: 11px; padding: 6px 10px; }
                         
-                        #workspace { height: 65vh; } /* Da más aire para scrollear la página */
+                        #workspace { height: 65vh; }
                     }
 
                     .fs-close-btn { float: left; cursor: pointer; font-size: 24px; margin-bottom: 10px; }
@@ -368,6 +376,7 @@ with tab1:
                     
                     <button id="toggle-sidebar-btn" onclick="toggleFsSidebar()">☰ Filtros</button>
                     <button class="btn-fs" onclick="toggleFS()">📺 Pantalla Completa</button>
+                    
                     <div id="viewer-container"></div>
                 </div>
 
