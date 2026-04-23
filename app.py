@@ -160,7 +160,8 @@ with tab1:
                 <script src="https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/openseadragon.min.js"></script>
                 <style>
                     body { background-color: #f4f7f6; padding: 0; margin: 0; font-family: 'Segoe UI', sans-serif; overflow-x: hidden; }
-                    .header { background: #2c3e50; color: white; padding: 15px; text-align: center; border-bottom: 4px solid #1abc9c; }
+                    /* MODIFICACIÓN: Encabezado blanco con texto negro */
+                    .header { background: white; color: black; padding: 15px; text-align: center; border-bottom: 4px solid #1abc9c; }
                     
                     #info-bar {
                         position: sticky; top: 0; z-index: 2000;
@@ -231,7 +232,7 @@ with tab1:
                 </style>
             </head>
             <body>
-                <div style="background: #2c3e50; text-align: center; padding-top: 15px;">
+                <div style="background: white; text-align: center; padding-top: 15px;">
                     <img src="__LOGO_URI__" alt="Mosaico" style="max-height: 70px; display: __MOSTRAR_LOGO__;">
                 </div>
                 <div class="header" style="border-top: none; padding-top: 5px;">
