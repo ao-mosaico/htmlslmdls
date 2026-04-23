@@ -141,8 +141,11 @@ with tab1:
             colores_unicos = sorted(df["color_norm"].unique().tolist())
             titulo_final = f"Componentes {nombre_modelo}" if nombre_modelo else "Componentes"
 
-            btn_tipo_main = ' '.join([f'<button class="btn btn-outline-primary btn-sm rounded-pill px-3 mx-1" data-val="{t}" onclick="updateFilters(\'tipo\', \'{t}\', this)">{t.upper()}</button>' for t in tipos_unicos])
-            btn_color_main = ' '.join([f'<button class="btn btn-outline-success btn-sm rounded-pill px-3 mx-1" data-val="{c}" onclick="updateFilters(\'color\', \'{c}\', this)">{c.replace("_", " ").upper()}</button>' for c in colores_unicos])
+            # Modificación de Botones Principales (Estructura más limpia sin Bootstrap standard)
+            btn_tipo_main = ' '.join([f'<button class="btn-custom-filter" data-val="{t}" onclick="updateFilters(\'tipo\', \'{t}\', this)">{t.upper()}</button>' for t in tipos_unicos])
+            btn_color_main = ' '.join([f'<button class="btn-custom-filter" data-val="{c}" onclick="updateFilters(\'color\', \'{c}\', this)">{c.replace("_", " ").upper()}</button>' for c in colores_unicos])
+            
+            # Botones del Fullscreen (se mantienen en modo oscuro de Bootstrap)
             btn_tipo_fs = ' '.join([f'<button class="btn btn-outline-light btn-sm btn-filter-fs" data-val="{t}" onclick="syncAndFilter(\'tipo\', \'{t}\', this)">{t.upper()}</button>' for t in tipos_unicos])
             btn_color_fs = ' '.join([f'<button class="btn btn-outline-light btn-sm btn-filter-fs" style="text-align: left;" data-val="{c}" onclick="syncAndFilter(\'color\', \'{c}\', this)"><span style="display:inline-block;width:10px;height:10px;background:{COLOR_CATALOG.get(c, "gray")};margin-right:8px;border-radius:50%"></span>{c.replace("_", " ").upper()}</button>' for c in colores_unicos])
 
@@ -153,7 +156,7 @@ with tab1:
                 <title>__TITULO_FINAL__</title>
                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
                 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-                <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap" rel="stylesheet">
+                <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
                 <script src="https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/openseadragon.min.js"></script>
                 <style>
                     body { background-color: #f4f7f6; padding: 0; margin: 0; font-family: 'Segoe UI', sans-serif; overflow-x: hidden; }
@@ -207,7 +210,6 @@ with tab1:
                     #fs-sidebar.active ~ #toggle-sidebar-btn { right: 315px; } 
                     #workspace:fullscreen #toggle-sidebar-btn { display: block; }
 
-                    .btn-primary, .btn-success, .btn-secondary { color: white !important; }
                     .sidebar-section-title { font-size: 12px; font-weight: bold; color: #1abc9c; letter-spacing: 1px; margin-bottom: 15px; border-bottom: 1px solid #3e5871; padding-bottom: 5px; }
                     
                     .dot { width: 14px; height: 14px; border-radius: 50%; border: none; opacity: 0.7; cursor: pointer; transition: transform 0.2s, opacity 0.2s; }
@@ -236,7 +238,30 @@ with tab1:
                     /* Banner de totales inferior en negro con texto blanco */
                     .total-banner { background: black; color: white; padding: 25px; border-radius: 8px; text-align: center; font-size: 1.6rem; font-weight: 700; margin-top: 25px; font-family: 'Montserrat', sans-serif; letter-spacing: 1px; }
                     
-                    .filter-section { background: white; padding: 15px; border-radius: 12px; margin: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+                    /* NUEVOS ESTILOS PARA LOS FILTROS MODERNOS */
+                    .filter-section { 
+                        background: white; padding: 20px 25px; border-radius: 12px; margin: 20px 15px; 
+                        box-shadow: 0 4px 15px rgba(0,0,0,0.04); font-family: 'Montserrat', sans-serif;
+                    }
+                    .filter-group-title { 
+                        font-size: 0.85rem; font-weight: 700; color: #7f8c8d; text-transform: uppercase; 
+                        letter-spacing: 1.5px; margin-bottom: 12px; display: block; 
+                        border-bottom: 2px solid #ecf0f1; padding-bottom: 6px; width: 100%;
+                    }
+                    .filter-container { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+                    
+                    .btn-custom-filter { 
+                        background: #f8f9fa; color: #34495e; border: 1px solid #dcdde1; border-radius: 6px; 
+                        padding: 8px 14px; font-size: 0.8rem; font-weight: 600; 
+                        transition: all 0.2s ease; cursor: pointer; text-transform: uppercase;
+                    }
+                    .btn-custom-filter:hover { background: #ecf0f1; border-color: #bdc3c7; transform: translateY(-1px); }
+                    
+                    /* Estados Activos */
+                    .btn-custom-active-tipo { background: #2c3e50 !important; color: white !important; border-color: #2c3e50 !important; box-shadow: 0 4px 8px rgba(44,62,80,0.2); }
+                    .btn-custom-active-color { background: #1abc9c !important; color: white !important; border-color: #1abc9c !important; box-shadow: 0 4px 8px rgba(26,188,156,0.2); }
+                    .btn-custom-active-none { background: #e74c3c !important; color: white !important; border-color: #e74c3c !important; box-shadow: 0 4px 8px rgba(231,76,60,0.2); }
+                    
                     .fs-close-btn { float: left; cursor: pointer; font-size: 24px; margin-bottom: 10px; }
                 </style>
             </head>
@@ -249,15 +274,15 @@ with tab1:
                 </div>
                 
                 <div id="main-filters" class="filter-section">
-                    <div class="mb-2" id="group-tipo-main">
-                        <small class="fw-bold text-muted">TIPO DE PIEZA:</small>
-                        <button class="btn btn-primary btn-sm rounded-pill px-3" data-val="all" onclick="updateFilters('tipo', 'all', this)">TODOS</button>
+                    <div class="mb-4 filter-container" id="group-tipo-main">
+                        <span class="filter-group-title">TIPO DE PIEZA</span>
+                        <button class="btn-custom-filter btn-custom-active-tipo" data-val="all" onclick="updateFilters('tipo', 'all', this)">TODOS</button>
                         __BTN_TIPO_MAIN__
-                        <button class="btn btn-outline-secondary btn-sm rounded-pill px-3 mx-1" data-val="none" onclick="updateFilters('tipo', 'none', this)">❌ NINGUNO</button>
+                        <button class="btn-custom-filter" data-val="none" onclick="updateFilters('tipo', 'none', this)">❌ NINGUNO</button>
                     </div>
-                    <div id="group-color-main">
-                        <small class="fw-bold text-muted">COLOR:</small>
-                        <button class="btn btn-success btn-sm rounded-pill px-3" data-val="all" onclick="updateFilters('color', 'all', this)">TODOS</button>
+                    <div class="filter-container" id="group-color-main">
+                        <span class="filter-group-title">COLOR</span>
+                        <button class="btn-custom-filter btn-custom-active-color" data-val="all" onclick="updateFilters('color', 'all', this)">TODOS</button>
                         __BTN_COLOR_MAIN__
                     </div>
                 </div>
@@ -345,33 +370,52 @@ with tab1:
                         document.getElementById('fs-sidebar').classList.toggle('active');
                     }
 
-                    function highlightButtons(groupId, value, activeClass, outlineClass) {
+                    // FUNCIÓN ACTUALIZADA: Separa la lógica visual de Main vs FS Sidebar
+                    function syncAndFilter(mode, value, btn) {
+                        if (mode === 'tipo') {
+                            filterT = value;
+                            
+                            // UI Principal
+                            const activeMainT = (value === 'none') ? 'btn-custom-active-none' : 'btn-custom-active-tipo';
+                            highlightMainButtons('group-tipo-main', value, activeMainT);
+                            
+                            // UI Fullscreen Sidebar
+                            const activeFsT = (value === 'none') ? 'btn-secondary' : 'btn-primary';
+                            const outlineFsT = (value === 'none') ? 'btn-outline-secondary' : 'btn-outline-light';
+                            highlightFsButtons('group-tipo-fs', value, activeFsT, outlineFsT);
+                            
+                        } else {
+                            filterC = value;
+                            
+                            // UI Principal
+                            highlightMainButtons('group-color-main', value, 'btn-custom-active-color');
+                            
+                            // UI Fullscreen Sidebar
+                            highlightFsButtons('group-color-fs', value, 'btn-success', 'btn-outline-light');
+                        }
+                        drawPoints();
+                    }
+
+                    function highlightMainButtons(groupId, value, activeClass) {
                         const container = document.getElementById(groupId);
-                        container.querySelectorAll('.btn').forEach(btn => {
-                            const btnVal = btn.getAttribute('data-val');
-                            if (btnVal === value) {
-                                btn.className = 'btn btn-sm ' + activeClass + (groupId.includes('fs') ? ' btn-filter-fs' : ' rounded-pill px-3 mx-1');
-                            } else {
-                                btn.className = 'btn btn-sm ' + outlineClass + (groupId.includes('fs') ? ' btn-filter-fs' : ' rounded-pill px-3 mx-1');
+                        container.querySelectorAll('.btn-custom-filter').forEach(btn => {
+                            btn.className = 'btn-custom-filter'; // Reset
+                            if (btn.getAttribute('data-val') === value) {
+                                btn.classList.add(activeClass);
                             }
                         });
                     }
 
-                    function syncAndFilter(mode, value, btn) {
-                        if (mode === 'tipo') {
-                            filterT = value;
-                            const activeT = (value === 'none') ? 'btn-secondary' : 'btn-primary';
-                            const outlineT = (value === 'none') ? 'btn-outline-secondary' : 'btn-outline-primary';
-                            const outlineFs = (value === 'none') ? 'btn-outline-secondary' : 'btn-outline-light';
-                            
-                            highlightButtons('group-tipo-main', value, activeT, outlineT);
-                            highlightButtons('group-tipo-fs', value, activeT, outlineFs);
-                        } else {
-                            filterC = value;
-                            highlightButtons('group-color-main', value, 'btn-success', 'btn-outline-success');
-                            highlightButtons('group-color-fs', value, 'btn-success', 'btn-outline-light');
-                        }
-                        drawPoints();
+                    function highlightFsButtons(groupId, value, activeClass, outlineClass) {
+                        const container = document.getElementById(groupId);
+                        container.querySelectorAll('.btn-filter-fs').forEach(btn => {
+                            const btnVal = btn.getAttribute('data-val');
+                            if (btnVal === value) {
+                                btn.className = 'btn btn-sm ' + activeClass + ' btn-filter-fs';
+                            } else {
+                                btn.className = 'btn btn-sm ' + outlineClass + ' btn-filter-fs';
+                            }
+                        });
                     }
 
                     function updateFilters(mode, value, btn) { syncAndFilter(mode, value, btn); }
