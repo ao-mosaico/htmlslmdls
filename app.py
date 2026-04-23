@@ -1,3 +1,10 @@
+Montserrat es una excelente elección; le da un toque mucho más moderno, limpio y profesional que combina muy bien con la estética de joyería contemporánea.
+
+Para que la fuente funcione correctamente en cualquier computadora (aunque no la tengan instalada), he añadido la importación desde Google Fonts directamente en el código del reporte. También he ajustado el banner de "Cantidad Total" para que sea negro con texto blanco, tal como pediste.
+
+Aquí tienes el código completo y actualizado:
+
+```python
 import streamlit as st
 import xml.etree.ElementTree as ET
 import pandas as pd
@@ -53,12 +60,11 @@ def ajustar_color_por_tipo(row):
 # =========================================================
 # INTERFAZ PRINCIPAL CON PESTAÑAS
 # =========================================================
-# Intentamos cargar el banner de Mosaico en la UI de Streamlit
 try:
     banner_img = Image.open("banner_mosaico.png")
     st.image(banner_img, use_container_width=True)
 except Exception:
-    pass # Si no existe, simplemente continuamos sin mostrar error
+    pass 
 
 st.title("💎 Gestor de Mosaicos Pro")
 st.markdown("---")
@@ -105,7 +111,6 @@ with tab1:
                             "color_plot": COLOR_CATALOG.get(normalizar_color(attrs.get("color", "")), "gray")
                         })
             
-            # Limpieza de duplicados
             filas_limpias = []
             coordenadas_vistas = set()
             for row in rows:
@@ -119,7 +124,6 @@ with tab1:
             df["color_norm"] = df.apply(ajustar_color_por_tipo, axis=1)
             df["color_plot"] = df["color_norm"].map(lambda x: COLOR_CATALOG.get(x, "gray"))
 
-            # Conversión de la imagen principal a Base64
             img = Image.open(img_file)
             width, height = img.size
             buffered = BytesIO()
@@ -127,7 +131,6 @@ with tab1:
             img_base64 = base64.b64encode(buffered.getvalue()).decode()
             data_uri = f"data:image/jpeg;base64,{img_base64}"
 
-            # --- NUEVA LÓGICA: Conversión del Logo a Base64 ---
             logo_uri = ""
             mostrar_logo = "none"
             try:
@@ -138,7 +141,7 @@ with tab1:
                 logo_uri = f"data:image/png;base64,{logo_base64}"
                 mostrar_logo = "inline-block"
             except Exception:
-                pass # Si falla, la variable mostrar_logo sigue en "none"
+                pass 
 
             puntos_json = df.to_json(orient='records')
             tipos_unicos = sorted(df["tipo"].unique().tolist())
@@ -157,18 +160,20 @@ with tab1:
                 <title>__TITULO_FINAL__</title>
                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
                 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+                <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap" rel="stylesheet">
                 <script src="https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/openseadragon.min.js"></script>
                 <style>
                     body { background-color: #f4f7f6; padding: 0; margin: 0; font-family: 'Segoe UI', sans-serif; overflow-x: hidden; }
                     
-                    /* MODIFICACIÓN: Encabezado blanco con texto negro y fuente tipo Mosaico */
-                    .header { background: white; color: black; padding: 15px; text-align: center; border-bottom: 4px solid #1abc9c; }
+                    /* Encabezado blanco con texto en Montserrat */
+                    .header { background: white; color: black; padding: 25px 15px; text-align: center; border-bottom: 4px solid #1abc9c; }
                     .header h2 { 
-                        font-family: 'Times New Roman', Georgia, serif; 
-                        letter-spacing: 2px; 
+                        font-family: 'Montserrat', sans-serif; 
+                        letter-spacing: 3px; 
                         text-transform: uppercase;
-                        font-weight: bold;
+                        font-weight: 700;
                         margin: 0;
+                        font-size: 1.8rem;
                     }
                     
                     #info-bar {
@@ -235,18 +240,18 @@ with tab1:
                     .item-table { width: 100%; margin-bottom: 10px; }
                     .item-table td { padding: 10px 15px; border-bottom: 1px solid #eee; }
                     
-                    /* MODIFICACIÓN: Banner de totales inferior en blanco con texto negro */
-                    .total-banner { background: white; color: black; border: 2px solid #1abc9c; padding: 20px; border-radius: 8px; text-align: center; font-size: 1.5rem; font-weight: bold; margin-top: 25px; }
+                    /* Banner de totales inferior en negro con texto blanco */
+                    .total-banner { background: black; color: white; padding: 25px; border-radius: 8px; text-align: center; font-size: 1.6rem; font-weight: 700; margin-top: 25px; font-family: 'Montserrat', sans-serif; letter-spacing: 1px; }
                     
                     .filter-section { background: white; padding: 15px; border-radius: 12px; margin: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
                     .fs-close-btn { float: left; cursor: pointer; font-size: 24px; margin-bottom: 10px; }
                 </style>
             </head>
             <body>
-                <div style="background: white; text-align: center; padding-top: 15px;">
-                    <img src="__LOGO_URI__" alt="Mosaico" style="max-height: 70px; display: __MOSTRAR_LOGO__;">
+                <div style="background: white; text-align: center; padding-top: 20px;">
+                    <img src="__LOGO_URI__" alt="Mosaico" style="max-height: 85px; display: __MOSTRAR_LOGO__;">
                 </div>
-                <div class="header" style="border-top: none; padding-top: 5px;">
+                <div class="header" style="border-top: none; padding-top: 10px;">
                     <h2>__TITULO_FINAL__</h2>
                 </div>
                 
@@ -423,7 +428,6 @@ with tab1:
                             viewer.addOverlay({ element: elt, location: new OpenSeadragon.Point(p.x/imgW, p.y/imgW), placement: 'CENTER' });
                         });
 
-                        // LÓGICA MODO DIAGRAMA
                         if (diagramMode) {
                             const groupsByType = {};
                             filtered.forEach(p => {
@@ -584,7 +588,7 @@ with tab1:
                             const key = p.color_norm.replace(/_/g, ' ').toUpperCase() + " (" + p.tamaño + ")";
                             groups[p.tipo][key] = (groups[p.tipo][key] || 0) + 1;
                         });
-                        let html = '<h4 class="fw-bold mb-4">RESUMEN DE COMPONENTES</h4>';
+                        let html = '<h4 class="fw-bold mb-4" style="font-family:Montserrat, sans-serif;">RESUMEN DE COMPONENTES</h4>';
                         for(let t in groups) {
                             let subtotal = Object.values(groups[t]).reduce((a, b) => a + b, 0);
                             html += '<div class="category-row"><span>' + t.toUpperCase() + '</span><span class="badge bg-primary">' + subtotal + ' pz</span></div><table class="item-table"><tbody>';
@@ -614,7 +618,6 @@ with tab1:
             </html>
             """
             
-            # Reemplazos finales para inyectar datos y componentes visuales en el HTML
             html_report = html_template.replace("__TITULO_FINAL__", str(titulo_final))
             html_report = html_report.replace("__BTN_TIPO_MAIN__", btn_tipo_main)
             html_report = html_report.replace("__BTN_COLOR_MAIN__", btn_color_main)
@@ -624,11 +627,9 @@ with tab1:
             html_report = html_report.replace("__WIDTH__", str(width))
             html_report = html_report.replace("__DATA_URI__", data_uri)
             
-            # --- NUEVOS REEMPLAZOS PARA EL LOGO ---
             html_report = html_report.replace("__LOGO_URI__", logo_uri)
             html_report = html_report.replace("__MOSTRAR_LOGO__", mostrar_logo)
 
-            # LÓGICA DE NOMBRE DE ARCHIVO ACTUALIZADA
             nombre_archivo = f"{nombre_modelo}.html" if nombre_modelo else "Modelo_Sin_Nombre.html"
 
             st.success("✅ ¡Reporte generado exitosamente!")
@@ -726,3 +727,4 @@ with tab3:
                 mime="text/csv",
                 type="primary"
             )
+```
