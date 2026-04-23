@@ -593,8 +593,11 @@ with tab1:
             html_report = html_report.replace("__WIDTH__", str(width))
             html_report = html_report.replace("__DATA_URI__", data_uri)
 
+            # Definimos el nombre exacto para la descarga del archivo
+            nombre_archivo = f"{nombre_modelo}.html" if nombre_modelo else "Modelo_Sin_Nombre.html"
+
             st.success("✅ ¡Reporte generado exitosamente!")
-            st.download_button(label="📥 DESCARGAR REPORTE HTML", data=html_report, file_name=f"{titulo_final}.html", mime="text/html", type="primary")
+            st.download_button(label="📥 DESCARGAR REPORTE HTML", data=html_report, file_name=nombre_archivo, mime="text/html", type="primary")
 
 # =========================================================
 # PESTAÑA 2: REPARAR HTMLs
