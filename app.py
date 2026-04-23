@@ -157,9 +157,11 @@ with tab1:
                 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
                 <script src="https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/openseadragon.min.js"></script>
                 <style>
-                    body { background-color: #f4f7f6; padding: 0; margin: 0; font-family: 'Segoe UI', sans-serif; overflow-x: hidden; touch-action: manipulation; }
+                    /* FIX RESPONSIVO GLOBAL */
+                    * { box-sizing: border-box; }
+                    html, body { background-color: #f4f7f6; padding: 0; margin: 0; font-family: 'Segoe UI', sans-serif; overflow-x: hidden; touch-action: manipulation; max-width: 100vw; }
                     
-                    .header { background: white; color: black; padding: 25px 15px; text-align: center; border-bottom: 4px solid #1abc9c; }
+                    .header { background: white; color: black; padding: 25px 15px; text-align: center; border-bottom: 4px solid #1abc9c; width: 100%; }
                     .header h2 { 
                         font-family: 'Montserrat', sans-serif; 
                         letter-spacing: 3px; 
@@ -167,6 +169,7 @@ with tab1:
                         font-weight: 700;
                         margin: 0;
                         font-size: 1.8rem;
+                        word-wrap: break-word;
                     }
                     
                     #info-bar {
@@ -178,8 +181,6 @@ with tab1:
 
                     #workspace { background: #000; position: relative; width: 100%; height: 75vh; overflow: hidden; }
                     #workspace:fullscreen { height: 100vh !important; width: 100vw !important; }
-                    
-                    /* OPTIMIZACIÓN MÓVIL: Evita conflictos de gestos con el navegador */
                     #viewer-container { width: 100%; height: 100%; touch-action: none; }
                     
                     .custom-nav { position: absolute; top: 125px; left: 15px; z-index: 1005; display: flex; flex-direction: column; gap: 8px; }
@@ -211,7 +212,6 @@ with tab1:
 
                     .sidebar-section-title { font-size: 12px; font-weight: bold; color: #1abc9c; letter-spacing: 1px; margin-bottom: 15px; border-bottom: 1px solid #3e5871; padding-bottom: 5px; }
                     
-                    /* OPTIMIZACIÓN MÓVIL: Puntos más grandes (18px) y delegados a GPU (will-change) */
                     .dot { 
                         width: 18px; height: 18px; border-radius: 50%; border: none; 
                         opacity: 0.85; cursor: pointer; 
@@ -220,7 +220,6 @@ with tab1:
                     }
                     .dot.selected { opacity: 1 !important; border: 3px solid #fff !important; box-shadow: 0 0 15px #fff; transform: scale(1.6); z-index: 999 !important; }
 
-                    /* OPTIMIZACIÓN MÓVIL: Etiquetas delegadas a GPU */
                     .diagram-label {
                         background: rgba(255, 255, 255, 0.90);
                         backdrop-filter: blur(4px);
@@ -236,8 +235,8 @@ with tab1:
                         will-change: transform;
                     }
 
-                    .report-container { position: relative; z-index: 1; background: #f4f7f6; padding-top: 20px; }
-                    .summary-card { background: white; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); padding: 25px; margin-bottom: 40px; }
+                    .report-container { position: relative; z-index: 1; background: #f4f7f6; padding-top: 20px; width: 100%; max-width: 1200px; margin: 0 auto; }
+                    .summary-card { background: white; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); padding: 25px; margin: 0 15px 40px 15px; }
                     .category-row { background: #f1f4f8; border-left: 5px solid #3498db; padding: 10px 15px; margin-top: 15px; font-weight: bold; display: flex; justify-content: space-between; align-items: center; border-radius: 4px; }
                     .item-table { width: 100%; margin-bottom: 10px; }
                     .item-table td { padding: 10px 15px; border-bottom: 1px solid #eee; }
@@ -245,8 +244,9 @@ with tab1:
                     .total-banner { background: black; color: white; padding: 25px; border-radius: 8px; text-align: center; font-size: 1.6rem; font-weight: 700; margin-top: 25px; font-family: 'Montserrat', sans-serif; letter-spacing: 1px; }
                     
                     .filter-section { 
-                        background: white; padding: 20px 25px; border-radius: 12px; margin: 20px 15px; 
+                        background: white; padding: 20px 25px; border-radius: 12px; margin: 20px auto; 
                         box-shadow: 0 4px 15px rgba(0,0,0,0.04); font-family: 'Montserrat', sans-serif;
+                        width: calc(100% - 30px); max-width: 1200px;
                     }
                     .filter-group-title { 
                         font-size: 0.85rem; font-weight: 700; color: #7f8c8d; text-transform: uppercase; 
@@ -267,13 +267,37 @@ with tab1:
                     .btn-custom-active-color { background: #1abc9c !important; color: white !important; border-color: #1abc9c !important; box-shadow: 0 4px 8px rgba(26,188,156,0.2); }
                     .btn-custom-active-none { background: #e74c3c !important; color: white !important; border-color: #e74c3c !important; box-shadow: 0 4px 8px rgba(231,76,60,0.2); }
                     
+                    /* ========================================= */
+                    /* MEDIA QUERIES PARA MÓVILES (Smartphones)  */
+                    /* ========================================= */
+                    @media (max-width: 768px) {
+                        .header { padding: 15px 10px; }
+                        .header h2 { font-size: 1.3rem; letter-spacing: 1px; }
+                        
+                        .filter-section { margin: 10px auto; width: calc(100% - 20px); padding: 15px; }
+                        .btn-custom-filter { padding: 6px 10px; font-size: 0.7rem; }
+                        .filter-group-title { font-size: 0.75rem; margin-bottom: 8px; }
+                        
+                        #info-bar { font-size: 14px; padding: 10px; min-height: 44px; }
+                        
+                        .summary-card { padding: 15px; margin: 0 10px 30px 10px; }
+                        .category-row { font-size: 0.9rem; padding: 8px 10px; }
+                        .item-table td { padding: 8px 10px; font-size: 0.85rem; }
+                        .total-banner { font-size: 1.2rem; padding: 15px; margin-top: 15px; }
+                        
+                        /* Ajuste de controles flotantes sobre la imagen */
+                        .custom-nav { top: 15px; left: 10px; transform: scale(0.85); transform-origin: top left; }
+                        .btn-fs { top: 15px; right: 10px; padding: 6px 12px; font-size: 12px; }
+                    }
+
                     .fs-close-btn { float: left; cursor: pointer; font-size: 24px; margin-bottom: 10px; }
                 </style>
             </head>
             <body>
-                <div style="background: white; text-align: center; padding-top: 20px;">
-                    <img src="__LOGO_URI__" alt="Mosaico" style="max-height: 85px; display: __MOSTRAR_LOGO__;">
+                <div style="background: white; text-align: center; padding-top: 20px; width: 100%; overflow: hidden;">
+                    <img src="__LOGO_URI__" alt="Mosaico" style="max-height: 85px; max-width: 90%; object-fit: contain; display: __MOSTRAR_LOGO__;">
                 </div>
+                
                 <div class="header" style="border-top: none; padding-top: 10px;">
                     <h2>__TITULO_FINAL__</h2>
                 </div>
@@ -343,7 +367,6 @@ with tab1:
                     const imgW = __WIDTH__;
                     let DISTANCE_THRESHOLD = 0.15;
                     
-                    // OPTIMIZACIÓN MÓVIL: Ajuste de físicas y renderizado del visor
                     const viewer = OpenSeadragon({
                         id: "viewer-container",
                         prefixUrl: "https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/images/",
@@ -353,8 +376,8 @@ with tab1:
                         minZoomImageRatio: 1.0,
                         visibilityRatio: 1.0,
                         constrainDuringPan: true,
-                        animationTime: 0.3, // Animación más rápida para reducir delay
-                        springStiffness: 15, // Respuesta más inmediata al dedo
+                        animationTime: 0.3,
+                        springStiffness: 15, 
                         gestureSettingsTouch: { clickToZoom: false, dblClickToZoom: false },
                         gestureSettingsMouse: { clickToZoom: false, dblClickToZoom: false }
                     });
@@ -455,7 +478,6 @@ with tab1:
                             
                             if(diagramMode) elt.style.opacity = "0.15"; 
                             
-                            // OPTIMIZACIÓN MÓVIL: e.preventDefault previene clics dobles fantasma en touch
                             elt.addEventListener('pointerdown', (e) => {
                                 e.stopPropagation();
                                 e.preventDefault(); 
