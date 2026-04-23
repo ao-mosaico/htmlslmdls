@@ -141,11 +141,9 @@ with tab1:
             colores_unicos = sorted(df["color_norm"].unique().tolist())
             titulo_final = f"Componentes {nombre_modelo}" if nombre_modelo else "Componentes"
 
-            # Modificación de Botones Principales (Estructura más limpia sin Bootstrap standard)
             btn_tipo_main = ' '.join([f'<button class="btn-custom-filter" data-val="{t}" onclick="updateFilters(\'tipo\', \'{t}\', this)">{t.upper()}</button>' for t in tipos_unicos])
             btn_color_main = ' '.join([f'<button class="btn-custom-filter" data-val="{c}" onclick="updateFilters(\'color\', \'{c}\', this)">{c.replace("_", " ").upper()}</button>' for c in colores_unicos])
             
-            # Botones del Fullscreen (se mantienen en modo oscuro de Bootstrap)
             btn_tipo_fs = ' '.join([f'<button class="btn btn-outline-light btn-sm btn-filter-fs" data-val="{t}" onclick="syncAndFilter(\'tipo\', \'{t}\', this)">{t.upper()}</button>' for t in tipos_unicos])
             btn_color_fs = ' '.join([f'<button class="btn btn-outline-light btn-sm btn-filter-fs" style="text-align: left;" data-val="{c}" onclick="syncAndFilter(\'color\', \'{c}\', this)"><span style="display:inline-block;width:10px;height:10px;background:{COLOR_CATALOG.get(c, "gray")};margin-right:8px;border-radius:50%"></span>{c.replace("_", " ").upper()}</button>' for c in colores_unicos])
 
@@ -154,14 +152,13 @@ with tab1:
             <html>
             <head>
                 <title>__TITULO_FINAL__</title>
-                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
                 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
                 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
                 <script src="https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/openseadragon.min.js"></script>
                 <style>
-                    body { background-color: #f4f7f6; padding: 0; margin: 0; font-family: 'Segoe UI', sans-serif; overflow-x: hidden; }
+                    body { background-color: #f4f7f6; padding: 0; margin: 0; font-family: 'Segoe UI', sans-serif; overflow-x: hidden; touch-action: manipulation; }
                     
-                    /* Encabezado blanco con texto en Montserrat */
                     .header { background: white; color: black; padding: 25px 15px; text-align: center; border-bottom: 4px solid #1abc9c; }
                     .header h2 { 
                         font-family: 'Montserrat', sans-serif; 
@@ -181,7 +178,9 @@ with tab1:
 
                     #workspace { background: #000; position: relative; width: 100%; height: 75vh; overflow: hidden; }
                     #workspace:fullscreen { height: 100vh !important; width: 100vw !important; }
-                    #viewer-container { width: 100%; height: 100%; }
+                    
+                    /* OPTIMIZACIÓN MÓVIL: Evita conflictos de gestos con el navegador */
+                    #viewer-container { width: 100%; height: 100%; touch-action: none; }
                     
                     .custom-nav { position: absolute; top: 125px; left: 15px; z-index: 1005; display: flex; flex-direction: column; gap: 8px; }
                     .nav-btn { width: 44px; height: 44px; border-radius: 8px; border: 2px solid white; color: white; font-size: 22px; font-weight: bold; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s;}
@@ -212,9 +211,16 @@ with tab1:
 
                     .sidebar-section-title { font-size: 12px; font-weight: bold; color: #1abc9c; letter-spacing: 1px; margin-bottom: 15px; border-bottom: 1px solid #3e5871; padding-bottom: 5px; }
                     
-                    .dot { width: 14px; height: 14px; border-radius: 50%; border: none; opacity: 0.7; cursor: pointer; transition: transform 0.2s, opacity 0.2s; }
+                    /* OPTIMIZACIÓN MÓVIL: Puntos más grandes (18px) y delegados a GPU (will-change) */
+                    .dot { 
+                        width: 18px; height: 18px; border-radius: 50%; border: none; 
+                        opacity: 0.85; cursor: pointer; 
+                        transition: transform 0.1s ease, opacity 0.1s ease; 
+                        will-change: transform; 
+                    }
                     .dot.selected { opacity: 1 !important; border: 3px solid #fff !important; box-shadow: 0 0 15px #fff; transform: scale(1.6); z-index: 999 !important; }
 
+                    /* OPTIMIZACIÓN MÓVIL: Etiquetas delegadas a GPU */
                     .diagram-label {
                         background: rgba(255, 255, 255, 0.90);
                         backdrop-filter: blur(4px);
@@ -227,6 +233,7 @@ with tab1:
                         pointer-events: none;
                         white-space: nowrap;
                         font-family: monospace;
+                        will-change: transform;
                     }
 
                     .report-container { position: relative; z-index: 1; background: #f4f7f6; padding-top: 20px; }
@@ -235,10 +242,8 @@ with tab1:
                     .item-table { width: 100%; margin-bottom: 10px; }
                     .item-table td { padding: 10px 15px; border-bottom: 1px solid #eee; }
                     
-                    /* Banner de totales inferior en negro con texto blanco */
                     .total-banner { background: black; color: white; padding: 25px; border-radius: 8px; text-align: center; font-size: 1.6rem; font-weight: 700; margin-top: 25px; font-family: 'Montserrat', sans-serif; letter-spacing: 1px; }
                     
-                    /* NUEVOS ESTILOS PARA LOS FILTROS MODERNOS */
                     .filter-section { 
                         background: white; padding: 20px 25px; border-radius: 12px; margin: 20px 15px; 
                         box-shadow: 0 4px 15px rgba(0,0,0,0.04); font-family: 'Montserrat', sans-serif;
@@ -254,10 +259,10 @@ with tab1:
                         background: #f8f9fa; color: #34495e; border: 1px solid #dcdde1; border-radius: 6px; 
                         padding: 8px 14px; font-size: 0.8rem; font-weight: 600; 
                         transition: all 0.2s ease; cursor: pointer; text-transform: uppercase;
+                        touch-action: manipulation;
                     }
                     .btn-custom-filter:hover { background: #ecf0f1; border-color: #bdc3c7; transform: translateY(-1px); }
                     
-                    /* Estados Activos */
                     .btn-custom-active-tipo { background: #2c3e50 !important; color: white !important; border-color: #2c3e50 !important; box-shadow: 0 4px 8px rgba(44,62,80,0.2); }
                     .btn-custom-active-color { background: #1abc9c !important; color: white !important; border-color: #1abc9c !important; box-shadow: 0 4px 8px rgba(26,188,156,0.2); }
                     .btn-custom-active-none { background: #e74c3c !important; color: white !important; border-color: #e74c3c !important; box-shadow: 0 4px 8px rgba(231,76,60,0.2); }
@@ -338,6 +343,7 @@ with tab1:
                     const imgW = __WIDTH__;
                     let DISTANCE_THRESHOLD = 0.15;
                     
+                    // OPTIMIZACIÓN MÓVIL: Ajuste de físicas y renderizado del visor
                     const viewer = OpenSeadragon({
                         id: "viewer-container",
                         prefixUrl: "https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/images/",
@@ -347,6 +353,8 @@ with tab1:
                         minZoomImageRatio: 1.0,
                         visibilityRatio: 1.0,
                         constrainDuringPan: true,
+                        animationTime: 0.3, // Animación más rápida para reducir delay
+                        springStiffness: 15, // Respuesta más inmediata al dedo
                         gestureSettingsTouch: { clickToZoom: false, dblClickToZoom: false },
                         gestureSettingsMouse: { clickToZoom: false, dblClickToZoom: false }
                     });
@@ -370,27 +378,20 @@ with tab1:
                         document.getElementById('fs-sidebar').classList.toggle('active');
                     }
 
-                    // FUNCIÓN ACTUALIZADA: Separa la lógica visual de Main vs FS Sidebar
                     function syncAndFilter(mode, value, btn) {
                         if (mode === 'tipo') {
                             filterT = value;
                             
-                            // UI Principal
                             const activeMainT = (value === 'none') ? 'btn-custom-active-none' : 'btn-custom-active-tipo';
                             highlightMainButtons('group-tipo-main', value, activeMainT);
                             
-                            // UI Fullscreen Sidebar
                             const activeFsT = (value === 'none') ? 'btn-secondary' : 'btn-primary';
                             const outlineFsT = (value === 'none') ? 'btn-outline-secondary' : 'btn-outline-light';
                             highlightFsButtons('group-tipo-fs', value, activeFsT, outlineFsT);
                             
                         } else {
                             filterC = value;
-                            
-                            // UI Principal
                             highlightMainButtons('group-color-main', value, 'btn-custom-active-color');
-                            
-                            // UI Fullscreen Sidebar
                             highlightFsButtons('group-color-fs', value, 'btn-success', 'btn-outline-light');
                         }
                         drawPoints();
@@ -399,7 +400,7 @@ with tab1:
                     function highlightMainButtons(groupId, value, activeClass) {
                         const container = document.getElementById(groupId);
                         container.querySelectorAll('.btn-custom-filter').forEach(btn => {
-                            btn.className = 'btn-custom-filter'; // Reset
+                            btn.className = 'btn-custom-filter'; 
                             if (btn.getAttribute('data-val') === value) {
                                 btn.classList.add(activeClass);
                             }
@@ -454,8 +455,10 @@ with tab1:
                             
                             if(diagramMode) elt.style.opacity = "0.15"; 
                             
+                            // OPTIMIZACIÓN MÓVIL: e.preventDefault previene clics dobles fantasma en touch
                             elt.addEventListener('pointerdown', (e) => {
                                 e.stopPropagation();
+                                e.preventDefault(); 
                                 if(lastSelected) lastSelected.classList.remove('selected');
                                 elt.classList.add('selected'); lastSelected = elt;
                                 bar.style.backgroundColor = p.color_plot;
@@ -567,6 +570,7 @@ with tab1:
                                 hLine1.style.borderTop = `2px dashed ${color}`;
                                 hLine1.style.opacity = "0.6";
                                 hLine1.style.pointerEvents = "none";
+                                hLine1.style.willChange = "transform";
                                 viewer.addOverlay({ element: hLine1, location: new OpenSeadragon.Rect(Math.min(cX, midX), cY, w1, 0.0001) });
 
                                 let h2 = Math.abs(adjY - cY);
@@ -575,6 +579,7 @@ with tab1:
                                     vLine.style.borderLeft = `2px dashed ${color}`;
                                     vLine.style.opacity = "0.6";
                                     vLine.style.pointerEvents = "none";
+                                    vLine.style.willChange = "transform";
                                     viewer.addOverlay({ element: vLine, location: new OpenSeadragon.Rect(midX, Math.min(cY, adjY), 0.0001, h2) });
                                 }
 
@@ -583,15 +588,17 @@ with tab1:
                                 hLine3.style.borderTop = `2px dashed ${color}`;
                                 hLine3.style.opacity = "0.6";
                                 hLine3.style.pointerEvents = "none";
+                                hLine3.style.willChange = "transform";
                                 viewer.addOverlay({ element: hLine3, location: new OpenSeadragon.Rect(Math.min(midX, edgeX), adjY, w3, 0.0001) });
 
                                 const anchorDot = document.createElement("div");
-                                anchorDot.style.width = "10px";
-                                anchorDot.style.height = "10px";
+                                anchorDot.style.width = "12px";
+                                anchorDot.style.height = "12px";
                                 anchorDot.style.backgroundColor = color;
                                 anchorDot.style.borderRadius = "50%";
                                 anchorDot.style.border = "2px solid white";
                                 anchorDot.style.boxShadow = "0 0 4px black";
+                                anchorDot.style.willChange = "transform";
                                 viewer.addOverlay({ element: anchorDot, location: new OpenSeadragon.Point(cX, cY), placement: 'CENTER' });
 
                                 const elLabel = document.createElement("div");
