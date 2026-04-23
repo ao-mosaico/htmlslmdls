@@ -53,7 +53,20 @@ def ajustar_color_por_tipo(row):
 # =========================================================
 # INTERFAZ PRINCIPAL CON PESTAÑAS
 # =========================================================
-st.title("💎 Gestor de Mosaicos Pro")
+
+# 1. Cargamos y mostramos el banner de Mosaico
+try:
+    # Asegúrate de que el nombre del archivo coincida con el que guardaste
+    banner_img = Image.open("banner_mosaico.png") 
+    
+    # use_container_width=True hace que se adapte al ancho de la página automáticamente
+    st.image(banner_img, use_container_width=True) 
+except FileNotFoundError:
+    # Este mensaje solo aparecerá si no se encuentra la imagen, para evitar errores
+    st.error("No se pudo cargar 'banner_mosaico.png'. Asegúrate de que la imagen esté en la misma carpeta que este script.")
+
+# 2. Mostramos el título y la línea separadora
+st.title("Gestor de Mosaicos Pro")
 st.markdown("---")
 
 tab1, tab2, tab3 = st.tabs(["✨ Crear Nuevo Reporte", "🛠️ Reparar HTMLs", "📊 Tabla de Resumen"])
