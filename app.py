@@ -1,10 +1,4 @@
-Montserrat es una excelente elección; le da un toque mucho más moderno, limpio y profesional que combina muy bien con la estética de joyería contemporánea.
 
-Para que la fuente funcione correctamente en cualquier computadora (aunque no la tengan instalada), he añadido la importación desde Google Fonts directamente en el código del reporte. También he ajustado el banner de "Cantidad Total" para que sea negro con texto blanco, tal como pediste.
-
-Aquí tienes el código completo y actualizado:
-
-```python
 import streamlit as st
 import xml.etree.ElementTree as ET
 import pandas as pd
