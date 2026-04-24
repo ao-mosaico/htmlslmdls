@@ -52,7 +52,7 @@ def ajustar_color_por_tipo(row):
     return color
 
 # =========================================================
-# PLANTILLA MAESTRA HTML (CANVAS ENGINE)
+# PLANTILLA MAESTRA HTML (CANVAS ENGINE + CLICK NATIVO)
 # =========================================================
 HTML_TEMPLATE = """
 <!DOCTYPE html>
@@ -361,34 +361,52 @@ HTML_TEMPLATE = """
         viewer.addHandler('update-viewport', renderCanvas);
         viewer.addHandler('animation', renderCanvas);
 
-        new OpenSeadragon.MouseTracker({
-            element: viewer.canvas,
-            clickHandler: function(event) {
-                if (filterT === 'none') return;
-                
-                const webPoint = event.position;
-                const filtered = getFilteredPoints();
-                let minDist = Infinity;
-                let bestP = null;
+        // =======================================================
+        // SISTEMA DE CLICK NATIVO Y A PRUEBA DE ERRORES (CORREGIDO)
+        // =======================================================
+        viewer.addHandler('canvas-click', function(event) {
+            if (filterT === 'none') return;
+            
+            const webPoint = event.position; // Coordenadas relativas exactas del click
+            const filtered = getFilteredPoints();
+            let minDist = Infinity;
+            let bestP = null;
 
-                filtered.forEach(p => {
-                    const vp = new OpenSeadragon.Point(p.x/imgW, p.y/imgW);
-                    const px = viewer.viewport.pixelFromPoint(vp, true);
-                    const dist = Math.sqrt(Math.pow(px.x - webPoint.x, 2) + Math.pow(px.y - webPoint.y, 2));
-                    if (dist < minDist) {
-                        minDist = dist;
-                        bestP = p;
-                    }
-                });
-
-                if (minDist < 25 && bestP) {
-                    lastSelected = bestP;
-                    const bar = document.getElementById('info-bar');
-                    bar.style.backgroundColor = bestP.color_plot;
-                    bar.style.color = getContrastColor(bestP.color_plot);
-                    bar.innerHTML = "SELECCIONADO: " + bestP.tipo.toUpperCase() + " | " + bestP.color_norm.replace(/_/g, ' ').toUpperCase() + " (" + bestP.tamaño + ")";
-                    renderCanvas(); 
+            filtered.forEach(p => {
+                const vp = new OpenSeadragon.Point(p.x/imgW, p.y/imgW);
+                const px = viewer.viewport.pixelFromPoint(vp, true);
+                const dist = Math.sqrt(Math.pow(px.x - webPoint.x, 2) + Math.pow(px.y - webPoint.y, 2));
+                if (dist < minDist) {
+                    minDist = dist;
+                    bestP = p;
                 }
+            });
+
+            const bar = document.getElementById('info-bar');
+
+            // 25 pixeles de tolerancia para dedos o ratón
+            if (minDist < 25 && bestP) {
+                lastSelected = bestP;
+                bar.style.backgroundColor = bestP.color_plot;
+                bar.style.color = getContrastColor(bestP.color_plot);
+                bar.innerHTML = "SELECCIONADO: " + bestP.tipo.toUpperCase() + " | " + bestP.color_norm.replace(/_/g, ' ').toUpperCase() + " (" + bestP.tamaño + ")";
+                
+                event.preventDefaultAction = true; // Evitar que OpenSeadragon haga zoom al clicar el punto
+            } else {
+                // Si hace click en una zona vacía, deseleccionamos
+                if(lastSelected) {
+                    lastSelected = null;
+                    bar.style.backgroundColor = "#f8f9fa"; 
+                    bar.style.color = "#2c3e50";
+                    bar.innerHTML = "Selecciona un punto para ver su detalle";
+                }
+            }
+            
+            // Repintar el lienzo y/o el diagrama
+            if (diagramMode) {
+                updateDataAndDiagram();
+            } else {
+                renderCanvas();
             }
         });
 
@@ -411,7 +429,17 @@ HTML_TEMPLATE = """
             document.getElementById('fs-sidebar').classList.toggle('active');
         }
 
+        function resetSelection() {
+            lastSelected = null;
+            const bar = document.getElementById('info-bar');
+            bar.style.backgroundColor = "#f8f9fa"; 
+            bar.style.color = "#2c3e50";
+            bar.innerHTML = "Selecciona un punto para ver su detalle";
+        }
+
         function syncAndFilter(mode, value, btn) {
+            resetSelection(); // Limpiamos la selección si cambiamos de filtro
+            
             if (mode === 'tipo') {
                 filterT = value;
                 const activeMainT = (value === 'none') ? 'btn-custom-active-none' : 'btn-custom-active-tipo';
@@ -615,6 +643,7 @@ HTML_TEMPLATE = """
                     anchorDot.style.border = "2px solid white";
                     anchorDot.style.boxShadow = "0 0 4px black";
                     anchorDot.style.willChange = "transform";
+                    anchorDot.style.pointerEvents = "none"; // CRUCIAL: Para no bloquear el click
                     viewer.addOverlay({ element: anchorDot, location: new OpenSeadragon.Point(cX, cY), placement: 'CENTER' });
 
                     const elLabel = document.createElement("div");
@@ -791,7 +820,6 @@ with tab1:
             tipos_unicos = sorted(df["tipo"].unique().tolist())
             colores_unicos = sorted(df["color_norm"].unique().tolist())
             
-            # EL TÍTULO INTERNO DEL HTML LLEVA "COMPONENTES..."
             titulo_final = f"Componentes {nombre_modelo}" if nombre_modelo else "Componentes"
 
             btn_tipo_main = ' '.join([f'<button class="btn-custom-filter" data-val="{t}" onclick="updateFilters(\'tipo\', \'{t}\', this)">{t.upper()}</button>' for t in tipos_unicos])
@@ -811,11 +839,10 @@ with tab1:
             html_report = html_report.replace("__LOGO_URI__", logo_uri)
             html_report = html_report.replace("__MOSTRAR_LOGO__", mostrar_logo)
 
-            # EL ARCHIVO QUE SE DESCARGA VA LIMPIO DE "COMPONENTES"
             nombre_limpio = str(nombre_modelo).replace("Componentes ", "").replace("Componentes", "").strip() if nombre_modelo else "Modelo_Sin_Nombre"
             nombre_archivo = f"{nombre_limpio}.html"
 
-            st.success("✅ ¡Reporte generado exitosamente!")
+            st.success("✅ ¡Reporte generado exitosamente con los clicks funcionales!")
             st.download_button(label="📥 DESCARGAR REPORTE HTML", data=html_report, file_name=nombre_archivo, mime="text/html", type="primary")
 
 # =========================================================
@@ -823,7 +850,7 @@ with tab1:
 # =========================================================
 with tab2:
     st.subheader("Herramienta de Limpieza y Actualización de HTMLs")
-    st.info("Sube los archivos HTML generados en el pasado. Esta herramienta los reparará y los dejará con el nombre exterior limpio.")
+    st.info("Sube los archivos HTML generados en el pasado. Esta herramienta los reparará, restablecerá el click y los dejará con el nombre exterior limpio.")
 
     html_files = st.file_uploader("Subir HTML(s) a actualizar y corregir", type=["html"], accept_multiple_files=True, key="fixer_uploader")
 
@@ -865,14 +892,10 @@ with tab2:
                         width = match_w.group(1)
                         data_uri = match_uri.group(1)
                         
-                        # MANTIENE "COMPONENTES..." PARA EL INTERIOR DEL HTML
                         if match_title:
                             titulo_interior = match_title.group(1)
-                            # Nos aseguramos que empiece con "Componentes " por si se le había borrado
                             if not titulo_interior.lower().startswith("componentes"):
                                 titulo_interior = f"Componentes {titulo_interior}"
-                            
-                            # EXTRAE EL NOMBRE PURO PARA EL ARCHIVO
                             modelo_puro = match_title.group(1).replace("Componentes ", "").replace("Componentes", "").strip()
                         else:
                             titulo_interior = "Componentes"
@@ -903,7 +926,6 @@ with tab2:
 
                         st.success(f"✅ {html_file.name}: Listo.")
                         
-                        # SE GUARDA DENTRO DEL ZIP CON EL NOMBRE COMPLETAMENTE LIMPIO
                         archivo_limpio = f"{modelo_puro}.html"
                         zip_file.writestr(archivo_limpio, html_report)
                         
