@@ -791,8 +791,8 @@ with tab1:
             tipos_unicos = sorted(df["tipo"].unique().tolist())
             colores_unicos = sorted(df["color_norm"].unique().tolist())
             
-            # ELIMINADA LA PALABRA "COMPONENTES" DEL TÍTULO PRINCIPAL
-            titulo_final = str(nombre_modelo).strip() if nombre_modelo else "Modelo_Sin_Nombre"
+            # EL TÍTULO INTERNO DEL HTML LLEVA "COMPONENTES..."
+            titulo_final = f"Componentes {nombre_modelo}" if nombre_modelo else "Componentes"
 
             btn_tipo_main = ' '.join([f'<button class="btn-custom-filter" data-val="{t}" onclick="updateFilters(\'tipo\', \'{t}\', this)">{t.upper()}</button>' for t in tipos_unicos])
             btn_color_main = ' '.join([f'<button class="btn-custom-filter" data-val="{c}" onclick="updateFilters(\'color\', \'{c}\', this)">{c.replace("_", " ").upper()}</button>' for c in colores_unicos])
@@ -811,9 +811,11 @@ with tab1:
             html_report = html_report.replace("__LOGO_URI__", logo_uri)
             html_report = html_report.replace("__MOSTRAR_LOGO__", mostrar_logo)
 
-            nombre_archivo = f"{titulo_final}.html"
+            # EL ARCHIVO QUE SE DESCARGA VA LIMPIO DE "COMPONENTES"
+            nombre_limpio = str(nombre_modelo).replace("Componentes ", "").replace("Componentes", "").strip() if nombre_modelo else "Modelo_Sin_Nombre"
+            nombre_archivo = f"{nombre_limpio}.html"
 
-            st.success("✅ ¡Reporte generado exitosamente con el nuevo motor de Canvas!")
+            st.success("✅ ¡Reporte generado exitosamente!")
             st.download_button(label="📥 DESCARGAR REPORTE HTML", data=html_report, file_name=nombre_archivo, mime="text/html", type="primary")
 
 # =========================================================
@@ -821,7 +823,7 @@ with tab1:
 # =========================================================
 with tab2:
     st.subheader("Herramienta de Limpieza y Actualización de HTMLs")
-    st.info("Sube los archivos HTML generados en el pasado. Esta herramienta eliminará los duplicados y además migrará el archivo a la **última versión del código con el motor de aceleración gráfica para tablets**.")
+    st.info("Sube los archivos HTML generados en el pasado. Esta herramienta los reparará y los dejará con el nombre exterior limpio.")
 
     html_files = st.file_uploader("Subir HTML(s) a actualizar y corregir", type=["html"], accept_multiple_files=True, key="fixer_uploader")
 
@@ -863,11 +865,18 @@ with tab2:
                         width = match_w.group(1)
                         data_uri = match_uri.group(1)
                         
-                        # ELIMINA LA PALABRA "COMPONENTES " DE LOS ARCHIVOS VIEJOS DURANTE LA ACTUALIZACIÓN
+                        # MANTIENE "COMPONENTES..." PARA EL INTERIOR DEL HTML
                         if match_title:
-                            titulo_final = match_title.group(1).replace("Componentes ", "").replace("Componentes", "").strip()
+                            titulo_interior = match_title.group(1)
+                            # Nos aseguramos que empiece con "Componentes " por si se le había borrado
+                            if not titulo_interior.lower().startswith("componentes"):
+                                titulo_interior = f"Componentes {titulo_interior}"
+                            
+                            # EXTRAE EL NOMBRE PURO PARA EL ARCHIVO
+                            modelo_puro = match_title.group(1).replace("Componentes ", "").replace("Componentes", "").strip()
                         else:
-                            titulo_final = "Modelo_Sin_Nombre"
+                            titulo_interior = "Componentes"
+                            modelo_puro = html_file.name.replace(".html", "").replace("Componentes ", "").replace("Corregido_", "").replace("Actualizado_", "")
                         
                         logo_uri = ""
                         mostrar_logo = "none"
@@ -881,7 +890,7 @@ with tab2:
                         except Exception:
                             pass
                             
-                        html_report = HTML_TEMPLATE.replace("__TITULO_FINAL__", str(titulo_final))
+                        html_report = HTML_TEMPLATE.replace("__TITULO_FINAL__", str(titulo_interior))
                         html_report = html_report.replace("__BTN_TIPO_MAIN__", btn_tipo_main)
                         html_report = html_report.replace("__BTN_COLOR_MAIN__", btn_color_main)
                         html_report = html_report.replace("__BTN_TIPO_FS__", btn_tipo_fs)
@@ -892,14 +901,16 @@ with tab2:
                         html_report = html_report.replace("__LOGO_URI__", logo_uri)
                         html_report = html_report.replace("__MOSTRAR_LOGO__", mostrar_logo)
 
-                        st.success(f"✅ {html_file.name}: Pasó de {len(puntos_lista)} a {len(filas_limpias)} piezas y fue **acelerado gráficamente**.")
+                        st.success(f"✅ {html_file.name}: Listo.")
                         
-                        zip_file.writestr(html_file.name, html_report)
+                        # SE GUARDA DENTRO DEL ZIP CON EL NOMBRE COMPLETAMENTE LIMPIO
+                        archivo_limpio = f"{modelo_puro}.html"
+                        zip_file.writestr(archivo_limpio, html_report)
                         
                     except Exception as e:
                         st.error(f"Error procesando {html_file.name}: {e}")
                 else:
-                    st.error(f"No se encontró la información completa en {html_file.name} para poder actualizarlo.")
+                    st.error(f"No se encontró la información completa en {html_file.name}.")
 
         fecha_descarga = datetime.now().strftime("%Y-%m-%d_%H-%M")
         nombre_zip = f"HTMLs_Actualizados_({fecha_descarga}).zip"
@@ -917,7 +928,7 @@ with tab2:
 # =========================================================
 with tab3:
     st.subheader("📊 Tabla Consolidada de Modelos")
-    st.info("Sube múltiples archivos HTML (ya sean los originales o los corregidos) y la app extraerá el nombre del modelo y el conteo total de piezas para generar una tabla.")
+    st.info("Sube múltiples archivos HTML para generar una tabla.")
 
     html_files_resumen = st.file_uploader("Subir HTML(s) para crear tabla", type=["html"], accept_multiple_files=True, key="resumen_uploader")
 
