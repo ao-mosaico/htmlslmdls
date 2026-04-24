@@ -7,6 +7,7 @@ from io import BytesIO
 import re      
 import json    
 import zipfile 
+from datetime import datetime 
 
 # =========================================================
 # CONFIGURACIÓN Y CATÁLOGO.
@@ -51,7 +52,7 @@ def ajustar_color_por_tipo(row):
     return color
 
 # =========================================================
-# PLANTILLA MAESTRA HTML (Última versión Móvil + Rotación)
+# PLANTILLA MAESTRA HTML (CANVAS ENGINE)
 # =========================================================
 HTML_TEMPLATE = """
 <!DOCTYPE html>
@@ -101,6 +102,7 @@ HTML_TEMPLATE = """
             width: 100%; display: block;
             box-shadow: 0 4px 6px rgba(0,0,0,0.15);
             overflow-wrap: break-word; word-wrap: break-word;
+            transition: background-color 0.2s ease, color 0.2s ease;
         }
 
         .custom-nav { position: absolute; top: 65px; left: 15px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; }
@@ -132,14 +134,6 @@ HTML_TEMPLATE = """
 
         .sidebar-section-title { font-size: 12px; font-weight: bold; color: #1abc9c; letter-spacing: 1px; margin-bottom: 15px; border-bottom: 1px solid #3e5871; padding-bottom: 5px; }
         
-        .dot { 
-            width: 18px; height: 18px; border-radius: 50%; border: none; 
-            opacity: 0.85; cursor: pointer; 
-            transition: transform 0.1s ease, opacity 0.1s ease; 
-            will-change: transform; 
-        }
-        .dot.selected { opacity: 1 !important; border: 3px solid #fff !important; box-shadow: 0 0 15px #fff; transform: scale(1.6); z-index: 999 !important; }
-
         .diagram-label {
             background: rgba(255, 255, 255, 0.90);
             backdrop-filter: blur(4px);
@@ -297,18 +291,122 @@ HTML_TEMPLATE = """
             minZoomImageRatio: 1.0,
             visibilityRatio: 1.0,
             constrainDuringPan: true,
-            animationTime: 0.3,
-            springStiffness: 15, 
+            animationTime: 0.2, // Acelerado para tablets
+            springStiffness: 20, 
             gestureSettingsTouch: { clickToZoom: false, dblClickToZoom: false },
             gestureSettingsMouse: { clickToZoom: false, dblClickToZoom: false }
         });
 
+        // ==========================================
+        // NUEVO MOTOR DE RENDERIZADO: HTML5 CANVAS
+        // ==========================================
+        const canvasOverlay = document.createElement('canvas');
+        canvasOverlay.style.position = 'absolute';
+        canvasOverlay.style.top = '0';
+        canvasOverlay.style.left = '0';
+        canvasOverlay.style.pointerEvents = 'none'; // Evita bloquear gestos
+        canvasOverlay.style.zIndex = '500';
+        viewer.canvas.appendChild(canvasOverlay);
+
         let filterT = 'all', filterC = 'all', lastSelected = null;
         let diagramMode = false;
+        let sliderTimeout;
+
+        function getFilteredPoints() {
+            return puntos.filter(p => (filterT === 'all' || p.tipo === filterT) && (filterC === 'all' || p.color_norm === filterC));
+        }
+
+        // Función que "pinta" los puntos en la pantalla a la velocidad de la luz
+        function renderCanvas() {
+            const ctx = canvasOverlay.getContext('2d');
+            const w = viewer.canvas.clientWidth;
+            const h = viewer.canvas.clientHeight;
+            const dpr = window.devicePixelRatio || 1; // Adaptación para pantallas Retina (Tablets altas)
+            
+            canvasOverlay.width = w * dpr;
+            canvasOverlay.height = h * dpr;
+            canvasOverlay.style.width = w + 'px';
+            canvasOverlay.style.height = h + 'px';
+            ctx.scale(dpr, dpr);
+            
+            ctx.clearRect(0, 0, w, h); // Limpiar cuadro anterior
+
+            if (filterT === 'none') return;
+
+            const filtered = getFilteredPoints();
+            const baseRadius = 9; // Tamaño fijo en píxeles equivalente al antiguo de 18px
+
+            filtered.forEach(p => {
+                 const vp = new OpenSeadragon.Point(p.x/imgW, p.y/imgW);
+                 const px = viewer.viewport.pixelFromPoint(vp, true);
+                 
+                 // Optimizador: Si el punto está fuera de la pantalla, no procesarlo (Culling)
+                 if(px.x < -20 || px.x > w + 20 || px.y < -20 || px.y > h + 20) return;
+
+                 const isSelected = (p === lastSelected);
+                 
+                 ctx.beginPath();
+                 ctx.arc(px.x, px.y, isSelected ? baseRadius * 1.6 : baseRadius, 0, 2*Math.PI);
+                 ctx.fillStyle = p.color_plot;
+                 ctx.globalAlpha = diagramMode ? 0.20 : 0.85;
+                 ctx.fill();
+                 
+                 if (isSelected) {
+                     ctx.globalAlpha = 1.0;
+                     ctx.lineWidth = 3;
+                     ctx.strokeStyle = '#ffffff';
+                     ctx.shadowColor = '#ffffff';
+                     ctx.shadowBlur = 10;
+                     ctx.stroke();
+                     ctx.shadowBlur = 0; 
+                 }
+            });
+        }
+
+        // Sincronizar Canvas con eventos nativos de OpenSeadragon
+        viewer.addHandler('update-viewport', renderCanvas);
+        viewer.addHandler('animation', renderCanvas);
+
+        // Sistema Interactivo para Clicks sobre el Canvas
+        new OpenSeadragon.MouseTracker({
+            element: viewer.canvas,
+            clickHandler: function(event) {
+                if (filterT === 'none') return;
+                
+                const webPoint = event.position;
+                const filtered = getFilteredPoints();
+                let minDist = Infinity;
+                let bestP = null;
+
+                // Encontrar el punto más cercano matemáticamente
+                filtered.forEach(p => {
+                    const vp = new OpenSeadragon.Point(p.x/imgW, p.y/imgW);
+                    const px = viewer.viewport.pixelFromPoint(vp, true);
+                    const dist = Math.sqrt(Math.pow(px.x - webPoint.x, 2) + Math.pow(px.y - webPoint.y, 2));
+                    if (dist < minDist) {
+                        minDist = dist;
+                        bestP = p;
+                    }
+                });
+
+                // Rango táctil generoso (25px) para dedos en tablet
+                if (minDist < 25 && bestP) {
+                    lastSelected = bestP;
+                    const bar = document.getElementById('info-bar');
+                    bar.style.backgroundColor = bestP.color_plot;
+                    bar.style.color = getContrastColor(bestP.color_plot);
+                    bar.innerHTML = "SELECCIONADO: " + bestP.tipo.toUpperCase() + " | " + bestP.color_norm.replace(/_/g, ' ').toUpperCase() + " (" + bestP.tamaño + ")";
+                    renderCanvas(); // Forzar repintado rápido
+                }
+            }
+        });
 
         document.getElementById('sensitivity-slider').addEventListener('input', function(e) {
             DISTANCE_THRESHOLD = e.target.value / 100.0;
-            if (diagramMode) drawPoints(); 
+            if (diagramMode) {
+                clearTimeout(sliderTimeout);
+                sliderTimeout = setTimeout(updateDataAndDiagram, 100); 
+            }
         });
 
         document.addEventListener('fullscreenchange', () => {
@@ -325,20 +423,17 @@ HTML_TEMPLATE = """
         function syncAndFilter(mode, value, btn) {
             if (mode === 'tipo') {
                 filterT = value;
-                
                 const activeMainT = (value === 'none') ? 'btn-custom-active-none' : 'btn-custom-active-tipo';
                 highlightMainButtons('group-tipo-main', value, activeMainT);
-                
                 const activeFsT = (value === 'none') ? 'btn-secondary' : 'btn-primary';
                 const outlineFsT = (value === 'none') ? 'btn-outline-secondary' : 'btn-outline-light';
                 highlightFsButtons('group-tipo-fs', value, activeFsT, outlineFsT);
-                
             } else {
                 filterC = value;
                 highlightMainButtons('group-color-main', value, 'btn-custom-active-color');
                 highlightFsButtons('group-color-fs', value, 'btn-success', 'btn-outline-light');
             }
-            drawPoints();
+            updateDataAndDiagram();
         }
 
         function highlightMainButtons(groupId, value, activeClass) {
@@ -378,38 +473,27 @@ HTML_TEMPLATE = """
             return (yiq >= 128) ? '#2c3e50' : '#ffffff';
         }
 
-        viewer.addHandler('open', drawPoints);
+        viewer.addHandler('open', updateDataAndDiagram);
 
-        function drawPoints() {
+        // Función encargada únicamente de las tablas, la barra info y los trazos del Diagrama
+        function updateDataAndDiagram() {
             viewer.clearOverlays();
             const bar = document.getElementById('info-bar');
+            
             if (filterT === 'none') {
                 bar.innerHTML = "MODO DE INSPECCIÓN: PUNTOS OCULTOS";
                 bar.style.backgroundColor = "#f8f9fa"; bar.style.color = "#2c3e50";
-                renderSummary([]); return;
+                renderSummary([]); 
+                renderCanvas();
+                return;
             }
-            bar.innerHTML = "Selecciona un punto para ver su detalle";
-            bar.style.backgroundColor = "#f8f9fa"; bar.style.color = "#2c3e50";
-
-            const filtered = puntos.filter(p => (filterT === 'all' || p.tipo === filterT) && (filterC === 'all' || p.color_norm === filterC));
             
-            filtered.forEach(p => {
-                const elt = document.createElement("div");
-                elt.className = "dot"; elt.style.backgroundColor = p.color_plot;
-                
-                if(diagramMode) elt.style.opacity = "0.15"; 
-                
-                elt.addEventListener('pointerdown', (e) => {
-                    e.stopPropagation();
-                    e.preventDefault(); 
-                    if(lastSelected) lastSelected.classList.remove('selected');
-                    elt.classList.add('selected'); lastSelected = elt;
-                    bar.style.backgroundColor = p.color_plot;
-                    bar.style.color = getContrastColor(p.color_plot);
-                    bar.innerHTML = "SELECCIONADO: " + p.tipo.toUpperCase() + " | " + p.color_norm.replace(/_/g, ' ').toUpperCase() + " (" + p.tamaño + ")";
-                });
-                viewer.addOverlay({ element: elt, location: new OpenSeadragon.Point(p.x/imgW, p.y/imgW), placement: 'CENTER' });
-            });
+            if (!lastSelected) {
+                bar.innerHTML = "Selecciona un punto para ver su detalle";
+                bar.style.backgroundColor = "#f8f9fa"; bar.style.color = "#2c3e50";
+            }
+
+            const filtered = getFilteredPoints();
 
             if (diagramMode) {
                 const groupsByType = {};
@@ -505,7 +589,6 @@ HTML_TEMPLATE = """
                     let { cX, cY, adjY, edgeX, cluster, k, count } = lbl;
                     let color = cluster.color;
                     let isLeft = cX < 0.5;
-                    
                     let midX = cX + (edgeX - cX) * 0.5; 
                     
                     let w1 = Math.abs(midX - cX);
@@ -563,6 +646,7 @@ HTML_TEMPLATE = """
             }
 
             renderSummary(filtered);
+            renderCanvas(); // Llamada final para pintar los puntos de cristal
         }
 
         function renderSummary(data) {
@@ -594,9 +678,7 @@ HTML_TEMPLATE = """
                 
                 if (fsPromise) {
                     fsPromise.then(() => {
-                        if (screen.orientation && screen.orientation.unlock) {
-                            screen.orientation.unlock();
-                        }
+                        if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock();
                     }).catch(err => console.log("Error al entrar a fullscreen:", err));
                 } else if (el.webkitRequestFullscreen) {
                     el.webkitRequestFullscreen();
@@ -607,9 +689,7 @@ HTML_TEMPLATE = """
                 
                 if (exitPromise) {
                     exitPromise.then(() => {
-                        if (screen.orientation && screen.orientation.unlock) {
-                            screen.orientation.unlock();
-                        }
+                        if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock();
                     }).catch(err => console.log("Error al salir de fullscreen:", err));
                 } else if (document.webkitExitFullscreen) { 
                     document.webkitExitFullscreen();
@@ -624,7 +704,7 @@ HTML_TEMPLATE = """
         document.getElementById('btn-diagrama').onclick = () => {
             diagramMode = !diagramMode;
             document.getElementById('btn-diagrama').style.background = diagramMode ? '#e74c3c' : '#f39c12';
-            drawPoints();
+            updateDataAndDiagram();
         };
     </script>
 </body>
@@ -728,7 +808,6 @@ with tab1:
             btn_tipo_fs = ' '.join([f'<button class="btn btn-outline-light btn-sm btn-filter-fs" data-val="{t}" onclick="syncAndFilter(\'tipo\', \'{t}\', this)">{t.upper()}</button>' for t in tipos_unicos])
             btn_color_fs = ' '.join([f'<button class="btn btn-outline-light btn-sm btn-filter-fs" style="text-align: left;" data-val="{c}" onclick="syncAndFilter(\'color\', \'{c}\', this)"><span style="display:inline-block;width:10px;height:10px;background:{COLOR_CATALOG.get(c, "gray")};margin-right:8px;border-radius:50%"></span>{c.replace("_", " ").upper()}</button>' for c in colores_unicos])
 
-            # Inyectar datos en la plantilla maestra
             html_report = HTML_TEMPLATE.replace("__TITULO_FINAL__", str(titulo_final))
             html_report = html_report.replace("__BTN_TIPO_MAIN__", btn_tipo_main)
             html_report = html_report.replace("__BTN_COLOR_MAIN__", btn_color_main)
@@ -742,7 +821,7 @@ with tab1:
 
             nombre_archivo = f"{nombre_modelo}.html" if nombre_modelo else "Modelo_Sin_Nombre.html"
 
-            st.success("✅ ¡Reporte generado exitosamente!")
+            st.success("✅ ¡Reporte generado exitosamente con el nuevo motor de Canvas!")
             st.download_button(label="📥 DESCARGAR REPORTE HTML", data=html_report, file_name=nombre_archivo, mime="text/html", type="primary")
 
 # =========================================================
@@ -750,7 +829,7 @@ with tab1:
 # =========================================================
 with tab2:
     st.subheader("Herramienta de Limpieza y Actualización de HTMLs")
-    st.info("Sube los archivos HTML generados en el pasado. Esta herramienta eliminará los duplicados y además migrará el archivo a la **última versión del código con la interfaz móvil responsiva**.")
+    st.info("Sube los archivos HTML generados en el pasado. Esta herramienta eliminará los duplicados y además migrará el archivo a la **última versión del código con el motor de aceleración gráfica para tablets**.")
 
     html_files = st.file_uploader("Subir HTML(s) a actualizar y corregir", type=["html"], accept_multiple_files=True, key="fixer_uploader")
 
@@ -760,7 +839,6 @@ with tab2:
             for i, html_file in enumerate(html_files):
                 content = html_file.read().decode("utf-8")
                 
-                # Extracción con expresiones regulares (como si sacáramos el ADN del viejo HTML)
                 match_puntos = re.search(r'const puntos = (\[.*?\]);', content, re.DOTALL)
                 match_w = re.search(r'const imgW = ([\d\.]+);', content)
                 match_uri = re.search(r"url:\s*['\"](data:image/[^'\"]+)['\"]", content)
@@ -768,7 +846,6 @@ with tab2:
                 
                 if match_puntos and match_w and match_uri:
                     try:
-                        # 1. Recuperar los puntos originales y limpiarlos
                         puntos_raw = match_puntos.group(1)
                         puntos_lista = json.loads(puntos_raw)
                         
@@ -782,7 +859,6 @@ with tab2:
                         
                         puntos_json_limpio = json.dumps(filas_limpias)
                         
-                        # 2. Reconstruir los botones de filtro con base en los puntos limpios
                         df_clean = pd.DataFrame(filas_limpias)
                         tipos_unicos = sorted(df_clean["tipo"].unique().tolist()) if "tipo" in df_clean.columns else []
                         colores_unicos = sorted(df_clean["color_norm"].unique().tolist()) if "color_norm" in df_clean.columns else []
@@ -792,12 +868,10 @@ with tab2:
                         btn_tipo_fs = ' '.join([f'<button class="btn btn-outline-light btn-sm btn-filter-fs" data-val="{t}" onclick="syncAndFilter(\'tipo\', \'{t}\', this)">{t.upper()}</button>' for t in tipos_unicos])
                         btn_color_fs = ' '.join([f'<button class="btn btn-outline-light btn-sm btn-filter-fs" style="text-align: left;" data-val="{c}" onclick="syncAndFilter(\'color\', \'{c}\', this)"><span style="display:inline-block;width:10px;height:10px;background:{COLOR_CATALOG.get(c, "gray")};margin-right:8px;border-radius:50%"></span>{c.replace("_", " ").upper()}</button>' for c in colores_unicos])
 
-                        # 3. Recuperar metadatos visuales
                         width = match_w.group(1)
                         data_uri = match_uri.group(1)
                         titulo_final = match_title.group(1) if match_title else "Componentes Actualizados"
                         
-                        # 4. Volver a cargar el logo local
                         logo_uri = ""
                         mostrar_logo = "none"
                         try:
@@ -810,7 +884,6 @@ with tab2:
                         except Exception:
                             pass
                             
-                        # 5. Inyectar todo en la plantilla MAESTRA actual
                         html_report = HTML_TEMPLATE.replace("__TITULO_FINAL__", str(titulo_final))
                         html_report = html_report.replace("__BTN_TIPO_MAIN__", btn_tipo_main)
                         html_report = html_report.replace("__BTN_COLOR_MAIN__", btn_color_main)
@@ -822,18 +895,23 @@ with tab2:
                         html_report = html_report.replace("__LOGO_URI__", logo_uri)
                         html_report = html_report.replace("__MOSTRAR_LOGO__", mostrar_logo)
 
-                        st.success(f"✅ {html_file.name}: Pasó de {len(puntos_lista)} a {len(filas_limpias)} piezas y fue **actualizado a la versión móvil**.")
-                        zip_file.writestr(f"Actualizado_{html_file.name}", html_report)
+                        st.success(f"✅ {html_file.name}: Pasó de {len(puntos_lista)} a {len(filas_limpias)} piezas y fue **acelerado gráficamente**.")
+                        
+                        # Se guarda con el nombre original que tenías (Ej. PB-1234.html)
+                        zip_file.writestr(html_file.name, html_report)
                         
                     except Exception as e:
                         st.error(f"Error procesando {html_file.name}: {e}")
                 else:
-                    st.error(f"No se encontró la información completa (imagen, título o puntos) en {html_file.name} para poder actualizarlo.")
+                    st.error(f"No se encontró la información completa en {html_file.name} para poder actualizarlo.")
+
+        fecha_descarga = datetime.now().strftime("%Y-%m-%d_%H-%M")
+        nombre_zip = f"HTMLs_Actualizados_({fecha_descarga}).zip"
 
         st.download_button(
             label="📦 DESCARGAR TODOS LOS ACTUALIZADOS (ZIP)",
             data=zip_buffer.getvalue(),
-            file_name="HTMLs_Actualizados.zip",
+            file_name=nombre_zip,
             mime="application/zip",
             type="primary"
         )
