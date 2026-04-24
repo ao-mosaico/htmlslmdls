@@ -291,20 +291,17 @@ HTML_TEMPLATE = """
             minZoomImageRatio: 1.0,
             visibilityRatio: 1.0,
             constrainDuringPan: true,
-            animationTime: 0.2, // Acelerado para tablets
+            animationTime: 0.2, 
             springStiffness: 20, 
             gestureSettingsTouch: { clickToZoom: false, dblClickToZoom: false },
             gestureSettingsMouse: { clickToZoom: false, dblClickToZoom: false }
         });
 
-        // ==========================================
-        // NUEVO MOTOR DE RENDERIZADO: HTML5 CANVAS
-        // ==========================================
         const canvasOverlay = document.createElement('canvas');
         canvasOverlay.style.position = 'absolute';
         canvasOverlay.style.top = '0';
         canvasOverlay.style.left = '0';
-        canvasOverlay.style.pointerEvents = 'none'; // Evita bloquear gestos
+        canvasOverlay.style.pointerEvents = 'none'; 
         canvasOverlay.style.zIndex = '500';
         viewer.canvas.appendChild(canvasOverlay);
 
@@ -316,12 +313,11 @@ HTML_TEMPLATE = """
             return puntos.filter(p => (filterT === 'all' || p.tipo === filterT) && (filterC === 'all' || p.color_norm === filterC));
         }
 
-        // Función que "pinta" los puntos en la pantalla a la velocidad de la luz
         function renderCanvas() {
             const ctx = canvasOverlay.getContext('2d');
             const w = viewer.canvas.clientWidth;
             const h = viewer.canvas.clientHeight;
-            const dpr = window.devicePixelRatio || 1; // Adaptación para pantallas Retina (Tablets altas)
+            const dpr = window.devicePixelRatio || 1; 
             
             canvasOverlay.width = w * dpr;
             canvasOverlay.height = h * dpr;
@@ -329,18 +325,17 @@ HTML_TEMPLATE = """
             canvasOverlay.style.height = h + 'px';
             ctx.scale(dpr, dpr);
             
-            ctx.clearRect(0, 0, w, h); // Limpiar cuadro anterior
+            ctx.clearRect(0, 0, w, h); 
 
             if (filterT === 'none') return;
 
             const filtered = getFilteredPoints();
-            const baseRadius = 9; // Tamaño fijo en píxeles equivalente al antiguo de 18px
+            const baseRadius = 9; 
 
             filtered.forEach(p => {
                  const vp = new OpenSeadragon.Point(p.x/imgW, p.y/imgW);
                  const px = viewer.viewport.pixelFromPoint(vp, true);
                  
-                 // Optimizador: Si el punto está fuera de la pantalla, no procesarlo (Culling)
                  if(px.x < -20 || px.x > w + 20 || px.y < -20 || px.y > h + 20) return;
 
                  const isSelected = (p === lastSelected);
@@ -363,11 +358,9 @@ HTML_TEMPLATE = """
             });
         }
 
-        // Sincronizar Canvas con eventos nativos de OpenSeadragon
         viewer.addHandler('update-viewport', renderCanvas);
         viewer.addHandler('animation', renderCanvas);
 
-        // Sistema Interactivo para Clicks sobre el Canvas
         new OpenSeadragon.MouseTracker({
             element: viewer.canvas,
             clickHandler: function(event) {
@@ -378,7 +371,6 @@ HTML_TEMPLATE = """
                 let minDist = Infinity;
                 let bestP = null;
 
-                // Encontrar el punto más cercano matemáticamente
                 filtered.forEach(p => {
                     const vp = new OpenSeadragon.Point(p.x/imgW, p.y/imgW);
                     const px = viewer.viewport.pixelFromPoint(vp, true);
@@ -389,14 +381,13 @@ HTML_TEMPLATE = """
                     }
                 });
 
-                // Rango táctil generoso (25px) para dedos en tablet
                 if (minDist < 25 && bestP) {
                     lastSelected = bestP;
                     const bar = document.getElementById('info-bar');
                     bar.style.backgroundColor = bestP.color_plot;
                     bar.style.color = getContrastColor(bestP.color_plot);
                     bar.innerHTML = "SELECCIONADO: " + bestP.tipo.toUpperCase() + " | " + bestP.color_norm.replace(/_/g, ' ').toUpperCase() + " (" + bestP.tamaño + ")";
-                    renderCanvas(); // Forzar repintado rápido
+                    renderCanvas(); 
                 }
             }
         });
@@ -475,7 +466,6 @@ HTML_TEMPLATE = """
 
         viewer.addHandler('open', updateDataAndDiagram);
 
-        // Función encargada únicamente de las tablas, la barra info y los trazos del Diagrama
         function updateDataAndDiagram() {
             viewer.clearOverlays();
             const bar = document.getElementById('info-bar');
@@ -646,7 +636,7 @@ HTML_TEMPLATE = """
             }
 
             renderSummary(filtered);
-            renderCanvas(); // Llamada final para pintar los puntos de cristal
+            renderCanvas(); 
         }
 
         function renderSummary(data) {
@@ -800,7 +790,9 @@ with tab1:
             puntos_json = df.to_json(orient='records')
             tipos_unicos = sorted(df["tipo"].unique().tolist())
             colores_unicos = sorted(df["color_norm"].unique().tolist())
-            titulo_final = f"Componentes {nombre_modelo}" if nombre_modelo else "Componentes"
+            
+            # ELIMINADA LA PALABRA "COMPONENTES" DEL TÍTULO PRINCIPAL
+            titulo_final = str(nombre_modelo).strip() if nombre_modelo else "Modelo_Sin_Nombre"
 
             btn_tipo_main = ' '.join([f'<button class="btn-custom-filter" data-val="{t}" onclick="updateFilters(\'tipo\', \'{t}\', this)">{t.upper()}</button>' for t in tipos_unicos])
             btn_color_main = ' '.join([f'<button class="btn-custom-filter" data-val="{c}" onclick="updateFilters(\'color\', \'{c}\', this)">{c.replace("_", " ").upper()}</button>' for c in colores_unicos])
@@ -819,7 +811,7 @@ with tab1:
             html_report = html_report.replace("__LOGO_URI__", logo_uri)
             html_report = html_report.replace("__MOSTRAR_LOGO__", mostrar_logo)
 
-            nombre_archivo = f"{nombre_modelo}.html" if nombre_modelo else "Modelo_Sin_Nombre.html"
+            nombre_archivo = f"{titulo_final}.html"
 
             st.success("✅ ¡Reporte generado exitosamente con el nuevo motor de Canvas!")
             st.download_button(label="📥 DESCARGAR REPORTE HTML", data=html_report, file_name=nombre_archivo, mime="text/html", type="primary")
@@ -870,7 +862,12 @@ with tab2:
 
                         width = match_w.group(1)
                         data_uri = match_uri.group(1)
-                        titulo_final = match_title.group(1) if match_title else "Componentes Actualizados"
+                        
+                        # ELIMINA LA PALABRA "COMPONENTES " DE LOS ARCHIVOS VIEJOS DURANTE LA ACTUALIZACIÓN
+                        if match_title:
+                            titulo_final = match_title.group(1).replace("Componentes ", "").replace("Componentes", "").strip()
+                        else:
+                            titulo_final = "Modelo_Sin_Nombre"
                         
                         logo_uri = ""
                         mostrar_logo = "none"
@@ -897,7 +894,6 @@ with tab2:
 
                         st.success(f"✅ {html_file.name}: Pasó de {len(puntos_lista)} a {len(filas_limpias)} piezas y fue **acelerado gráficamente**.")
                         
-                        # Se guarda con el nombre original que tenías (Ej. PB-1234.html)
                         zip_file.writestr(html_file.name, html_report)
                         
                     except Exception as e:
