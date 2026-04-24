@@ -680,7 +680,7 @@ with tab1:
                         container.innerHTML = html;
                     }
 
-                    // FUNCIÓN DE PANTALLA COMPLETA ACTUALIZADA PARA PERMITIR AMBAS ROTACIONES
+                    // FUNCIÓN DE PANTALLA COMPLETA ACTUALIZADA CON ROTACIÓN AUTOMÁTICA
                     function toggleFS() {
                         const el = document.getElementById("workspace");
                         
@@ -689,26 +689,26 @@ with tab1:
                             
                             if (fsPromise) {
                                 fsPromise.then(() => {
-                                    // Liberar la orientación para que el sensor del teléfono decida
-                                    if (screen.orientation && screen.orientation.unlock) {
-                                        screen.orientation.unlock();
+                                    // Intenta forzar orientación horizontal al entrar
+                                    if (screen.orientation && screen.orientation.lock) {
+                                        screen.orientation.lock("landscape").catch(err => console.log("Bloqueo de rotación no soportado:", err));
                                     }
                                 }).catch(err => console.log("Error al entrar a fullscreen:", err));
-                            } else if (el.webkitRequestFullscreen) {
-                                el.webkitRequestFullscreen();
-                                if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock();
                             }
                         } else {
                             let exitPromise = document.exitFullscreen ? document.exitFullscreen() : (document.webkitExitFullscreen ? document.webkitExitFullscreen() : null);
                             
                             if (exitPromise) {
                                 exitPromise.then(() => {
+                                    // Libera la orientación al salir
                                     if (screen.orientation && screen.orientation.unlock) {
                                         screen.orientation.unlock();
                                     }
                                 }).catch(err => console.log("Error al salir de fullscreen:", err));
                             } else if (document.webkitExitFullscreen) { 
+                                // Safari antiguo (sin promesas)
                                 document.webkitExitFullscreen();
+                                if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock();
                             }
                         }
                     }
