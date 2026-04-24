@@ -157,7 +157,6 @@ with tab1:
                 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
                 <script src="https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/openseadragon.min.js"></script>
                 <style>
-                    /* FIX RESPONSIVO GLOBAL: 100% en lugar de 100vw para evitar bugs de scrollbar */
                     * { box-sizing: border-box; }
                     html, body { 
                         background-color: #f4f7f6; padding: 0; margin: 0; 
@@ -177,16 +176,6 @@ with tab1:
                         word-wrap: break-word;
                     }
                     
-                    #info-bar {
-                        position: sticky; top: 0; z-index: 2000;
-                        background: #f8f9fa; color: #2c3e50; padding: 12px 10px; text-align: center;
-                        font-weight: bold; border-bottom: 3px solid #1abc9c; font-size: 18px;
-                        width: 100%; display: block;
-                        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-                        overflow-wrap: break-word; word-wrap: break-word;
-                    }
-
-                    /* FIX WORKSPACE: Ancho estricto al 100% real del contenedor padre */
                     #workspace { 
                         background: #000; position: relative; 
                         width: 100%; max-width: 100%; height: 75vh; 
@@ -194,14 +183,21 @@ with tab1:
                     }
                     #workspace:fullscreen { height: 100vh !important; width: 100vw !important; }
                     
-                    /* FIX VIEWER: Absoluto para que OSD no empuje los bordes hacia afuera */
                     #viewer-container { 
                         position: absolute; top: 0; left: 0; 
                         width: 100%; height: 100%; touch-action: none; 
                     }
                     
-                    /* BOTONES CON Z-INDEX MÁXIMO (9999) */
-                    .custom-nav { position: absolute; top: 15px; left: 15px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; }
+                    #info-bar {
+                        position: absolute; top: 0; left: 0; z-index: 8000;
+                        background: #f8f9fa; color: #2c3e50; padding: 12px 10px; text-align: center;
+                        font-weight: bold; border-bottom: 3px solid #1abc9c; font-size: 18px;
+                        width: 100%; display: block;
+                        box-shadow: 0 4px 6px rgba(0,0,0,0.15);
+                        overflow-wrap: break-word; word-wrap: break-word;
+                    }
+
+                    .custom-nav { position: absolute; top: 65px; left: 15px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; }
                     .nav-btn { width: 44px; height: 44px; border-radius: 8px; border: 2px solid white; color: white; font-size: 22px; font-weight: bold; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s;}
                     .nav-btn:hover { transform: scale(1.1); }
                     .btn-zoom-in { background: #1abc9c !important; }
@@ -209,7 +205,7 @@ with tab1:
                     .btn-home { background: #3498db !important; }
                     .btn-diagrama { background: #f39c12 !important; font-size: 20px; }
 
-                    .btn-fs { position: absolute; top: 15px; right: 15px; z-index: 9999; background: #fff; border: 2px solid #2c3e50; padding: 8px 16px; border-radius: 20px; font-weight: bold; cursor: pointer; }
+                    .btn-fs { position: absolute; top: 65px; right: 15px; z-index: 9999; background: #fff; border: 2px solid #2c3e50; padding: 8px 16px; border-radius: 20px; font-weight: bold; cursor: pointer; }
 
                     #fs-sidebar {
                         position: absolute; top: 0; right: -320px; width: 300px; height: 100%;
@@ -220,7 +216,7 @@ with tab1:
                     #fs-sidebar.active { right: 0; }
                     
                     #toggle-sidebar-btn {
-                        position: absolute; top: 70px; right: 15px; z-index: 9999;
+                        position: absolute; top: 120px; right: 15px; z-index: 9999;
                         background: #1abc9c; color: white; border: 2px solid white;
                         padding: 10px; border-radius: 8px; font-weight: bold; display: none; cursor: pointer;
                         transition: right 0.3s ease;
@@ -285,9 +281,6 @@ with tab1:
                     .btn-custom-active-color { background: #1abc9c !important; color: white !important; border-color: #1abc9c !important; box-shadow: 0 4px 8px rgba(26,188,156,0.2); }
                     .btn-custom-active-none { background: #e74c3c !important; color: white !important; border-color: #e74c3c !important; box-shadow: 0 4px 8px rgba(231,76,60,0.2); }
                     
-                    /* ========================================= */
-                    /* MEDIA QUERIES PARA MÓVILES (Smartphones)  */
-                    /* ========================================= */
                     @media (max-width: 768px) {
                         .header { padding: 15px 10px; }
                         .header h2 { font-size: 1.3rem; letter-spacing: 1px; }
@@ -303,10 +296,9 @@ with tab1:
                         .item-table td { padding: 8px 10px; font-size: 0.85rem; }
                         .total-banner { font-size: 1.2rem; padding: 15px; margin-top: 15px; }
                         
-                        /* Controles ajustados para no salirse de pantalla */
-                        .custom-nav { top: 10px; left: 10px; transform: scale(0.85); transform-origin: top left; }
-                        .btn-fs { top: 10px; right: 10px; padding: 6px 12px; font-size: 11px; }
-                        #toggle-sidebar-btn { top: 55px; right: 10px; font-size: 11px; padding: 6px 10px; }
+                        .custom-nav { top: 55px; left: 10px; transform: scale(0.85); transform-origin: top left; }
+                        .btn-fs { top: 55px; right: 10px; padding: 6px 12px; font-size: 11px; }
+                        #toggle-sidebar-btn { top: 100px; right: 10px; font-size: 11px; padding: 6px 10px; }
                         
                         #workspace { height: 65vh; }
                     }
@@ -337,9 +329,10 @@ with tab1:
                     </div>
                 </div>
 
-                <div id="info-bar">Selecciona un punto para ver su detalle</div>
-
                 <div id="workspace">
+                    
+                    <div id="info-bar">Selecciona un punto para ver su detalle</div>
+
                     <div id="fs-sidebar">
                         <span class="fs-close-btn" onclick="toggleFsSidebar()">×</span>
                         <div style="clear:both;"></div>
@@ -687,9 +680,37 @@ with tab1:
                         container.innerHTML = html;
                     }
 
+                    // FUNCIÓN DE PANTALLA COMPLETA ACTUALIZADA CON ROTACIÓN AUTOMÁTICA
                     function toggleFS() {
                         const el = document.getElementById("workspace");
-                        if (!document.fullscreenElement) el.requestFullscreen(); else document.exitFullscreen();
+                        
+                        if (!document.fullscreenElement) {
+                            let fsPromise = el.requestFullscreen ? el.requestFullscreen() : (el.webkitRequestFullscreen ? el.webkitRequestFullscreen() : null);
+                            
+                            if (fsPromise) {
+                                fsPromise.then(() => {
+                                    // Intenta forzar orientación horizontal al entrar
+                                    if (screen.orientation && screen.orientation.lock) {
+                                        screen.orientation.lock("landscape").catch(err => console.log("Bloqueo de rotación no soportado:", err));
+                                    }
+                                }).catch(err => console.log("Error al entrar a fullscreen:", err));
+                            }
+                        } else {
+                            let exitPromise = document.exitFullscreen ? document.exitFullscreen() : (document.webkitExitFullscreen ? document.webkitExitFullscreen() : null);
+                            
+                            if (exitPromise) {
+                                exitPromise.then(() => {
+                                    // Libera la orientación al salir
+                                    if (screen.orientation && screen.orientation.unlock) {
+                                        screen.orientation.unlock();
+                                    }
+                                }).catch(err => console.log("Error al salir de fullscreen:", err));
+                            } else if (document.webkitExitFullscreen) { 
+                                // Safari antiguo (sin promesas)
+                                document.webkitExitFullscreen();
+                                if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock();
+                            }
+                        }
                     }
 
                     document.getElementById('btn-in').onclick = () => viewer.viewport.zoomBy(1.4);
